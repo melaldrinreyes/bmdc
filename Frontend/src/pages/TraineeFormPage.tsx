@@ -865,7 +865,7 @@ export default function TraineeFormPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="sex">Sex *</Label>
-                  <Select value={formData.sex || undefined} onValueChange={(value: string) => handleInputChange('sex', value)}>
+                  <Select value={formData.sex || ''} onValueChange={(value: string) => handleInputChange('sex', value)}>
                     <SelectTrigger className={validationErrors.sex ? 'border-red-500' : ''}>
                       <SelectValue placeholder="Select sex" />
                     </SelectTrigger>
@@ -909,7 +909,7 @@ export default function TraineeFormPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="civilStatus">Civil Status *</Label>
-                  <Select value={formData.civilStatus || undefined} onValueChange={(value: string) => handleInputChange('civilStatus', value)}>
+                  <Select value={formData.civilStatus || ''} onValueChange={(value: string) => handleInputChange('civilStatus', value)}>
                     <SelectTrigger className={validationErrors.civilStatus ? 'border-red-500' : ''}>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -1083,7 +1083,7 @@ export default function TraineeFormPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="educationalAttainment">Educational Attainment *</Label>
-                  <Select value={formData.educationalAttainment || undefined} onValueChange={(value: string) => handleInputChange('educationalAttainment', value)}>
+                  <Select value={formData.educationalAttainment || ''} onValueChange={(value: string) => handleInputChange('educationalAttainment', value)}>
                     <SelectTrigger className={validationErrors.educationalAttainment ? 'border-red-500' : ''}>
                       <SelectValue placeholder="Select level" />
                     </SelectTrigger>
@@ -1139,7 +1139,7 @@ export default function TraineeFormPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="classification">Client Classification *</Label>
-                  <Select value={formData.classification || undefined} onValueChange={(value: string) => handleInputChange('classification', value)}>
+                  <Select value={formData.classification || ''} onValueChange={(value: string) => handleInputChange('classification', value)}>
                     <SelectTrigger className={validationErrors.classification ? 'border-red-500' : ''}>
                       <SelectValue placeholder="Select classification" />
                     </SelectTrigger>
@@ -1166,7 +1166,7 @@ export default function TraineeFormPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="employmentStatus">Employment Status *</Label>
-                  <Select value={formData.employmentStatus || undefined} onValueChange={(value: string) => handleInputChange('employmentStatus', value)}>
+                  <Select value={formData.employmentStatus || ''} onValueChange={(value: string) => handleInputChange('employmentStatus', value)}>
                     <SelectTrigger className={validationErrors.employmentStatus ? 'border-red-500' : ''}>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -1191,7 +1191,7 @@ export default function TraineeFormPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="program">Training Program *</Label>
-                    <Select value={trainings[0].program || undefined} onValueChange={(value: string) => handleTrainingChange(0, 'program', value)}>
+                    <Select value={trainings[0].program || ''} onValueChange={(value: string) => handleTrainingChange(0, 'program', value)}>
                       <SelectTrigger className={validationErrors.program ? 'border-red-500' : ''}>
                         <SelectValue placeholder="Select program">
                           {trainings[0].program ? getProgramNameById(trainings[0].program) : "Select program"}

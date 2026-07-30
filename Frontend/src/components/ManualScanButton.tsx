@@ -9,6 +9,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -67,21 +68,23 @@ export default function ManualScanButton({ onScanComplete, disabled }: ManualSca
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Trigger Manual Detection Scan?</AlertDialogTitle>
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              This will run a comprehensive data quality scan across all modules:
-            </p>
-            <ul className="list-disc list-inside space-y-1.5 text-sm pl-2">
-              <li>Trainee data validation</li>
-              <li>Inventory stock reconciliation</li>
-              <li>Lending operations review</li>
-              <li>Program data integrity checks</li>
-              <li>Activity log analysis</li>
-            </ul>
-            <p className="text-xs text-muted-foreground pt-2">
-              The scan typically takes 1-2 minutes to complete. You can continue working while it runs.
-            </p>
-          </div>
+          <AlertDialogDescription>
+            <div className="space-y-3">
+              <p>
+                This will run a comprehensive data quality scan across all modules:
+              </p>
+              <ul className="list-disc list-inside space-y-1.5 text-sm pl-2">
+                <li>Trainee data validation</li>
+                <li>Inventory stock reconciliation</li>
+                <li>Lending operations review</li>
+                <li>Program data integrity checks</li>
+                <li>Activity log analysis</li>
+              </ul>
+              <p className="text-xs pt-2">
+                The scan typically takes 1-2 minutes to complete. You can continue working while it runs.
+              </p>
+            </div>
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
