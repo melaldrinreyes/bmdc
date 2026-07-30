@@ -6,7 +6,7 @@
  */
 process.env.JWT_SECRET = 'test-jwt-secret-for-jest-do-not-use-in-production';
 process.env.JWT_EXPIRES_IN = '8h';
-process.env.NODE_ENV = 'test';
+Object.defineProperty(process.env, 'NODE_ENV', { value: 'test', writable: true });
 
 // Supabase configuration for tests
 process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://uhhavzjgdsznlokozocr.supabase.co';
