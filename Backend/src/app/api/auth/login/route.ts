@@ -43,9 +43,9 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
-  // Rate limit: 10 attempts per IP per 15 minutes
+  // Rate limit: 50 attempts per IP per 15 minutes (increased for development)
   const rlResponse = checkRateLimit(getRateLimitKey(request, 'login'), {
-    limit: 10,
+    limit: 50,
     windowMs: 15 * 60 * 1000,
   });
   if (rlResponse) return rlResponse;
@@ -192,10 +192,11 @@ async function buildLoginResponse(
   setAuthCookie(response, token);
 
   // Set refresh token cookie
+  const isProduction = process.env.NODE_ENV === 'production';
   response.cookies.set('refresh_token', refresh.token, {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    secure: isProduction,
+    sameSite: isProduction ? 'strict' : 'lax',
     maxAge: refreshTokenMaxAge,
     path: '/',
   });

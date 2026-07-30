@@ -103,9 +103,12 @@ export function setAuthCookie(
 
   response.cookies.set('auth_token', token, {
     httpOnly: true,
-    // SameSite=Strict (Req 6.8) — prevents the cookie from being sent on
-    // cross-site requests, providing strong CSRF protection.
-    sameSite: 'strict',
+    // In production keep SameSite=Strict for strong CSRF protection.
+    // During local development the frontend often runs on a different
+    // origin (different localhost port). Use SameSite='lax' in
+    // non-production so browsers will accept cross-site cookies during
+    // development without requiring the Secure flag.
+    sameSite: isProduction ? 'strict' : 'lax',
     // Secure flag ensures the cookie is only transmitted over HTTPS in
     // production; relaxed in development to allow http://localhost.
     secure: isProduction,
@@ -118,10 +121,11 @@ export function setAuthCookie(
  * Clear the auth_token cookie (used during logout).
  */
 export function clearAuthCookie(response: NextResponse): void {
+  const isProduction = process.env.NODE_ENV === 'production';
   response.cookies.set('auth_token', '', {
     httpOnly: true,
-    sameSite: 'strict',
-    secure: process.env.NODE_ENV === 'production',
+    sameSite: isProduction ? 'strict' : 'lax',
+    secure: isProduction,
     maxAge: 0,
     path: '/',
   });

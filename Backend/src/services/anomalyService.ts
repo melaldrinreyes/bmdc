@@ -40,6 +40,7 @@ interface DetectionConfigRecord {
 
 interface DetectionRunRecord {
   id: string;
+  tenant_id?: string;
   started_at: string;
   completed_at: string | null;
   duration_seconds: number | null;
@@ -63,6 +64,7 @@ interface DetectionResult {
 interface DetectionRunOptions {
   detectionRunId?: string;
   config?: DetectionConfigValue;
+  tenantId?: string;
 }
 
 interface AnomalyQueryFilters {
@@ -76,6 +78,7 @@ interface AnomalyQueryFilters {
   search?: string;
   entityType?: string;
   entityId?: string;
+  tenantId?: string;
 }
 
 interface PaginationOptions {
@@ -126,6 +129,11 @@ export class AnomalyService {
   }
 
   private applyAnomalyFilters(query: any, filters?: AnomalyQueryFilters): any {
+    // Apply tenant filtering first (tenant isolation - Req 14.x)
+    if (filters?.tenantId) {
+      query = query.eq('tenant_id', filters.tenantId);
+    }
+
     if (filters?.ids && filters.ids.length > 0) {
       query = query.in('id', filters.ids);
     }
@@ -176,7 +184,7 @@ export class AnomalyService {
   }
 
   private async hasUnresolvedAnomaly(anomalyType: string, entityId: string): Promise<boolean> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('anomalies')
       .select('id')
       .eq('anomaly_type', anomalyType)
@@ -208,7 +216,7 @@ export class AnomalyService {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('anomalies')
       .select('*', { count: 'exact' });
 
@@ -350,11 +358,13 @@ export class AnomalyService {
   private async createDetectionRun(
     triggerType: 'scheduled' | 'manual',
     triggeredBy: string | null,
-    configSnapshot: DetectionConfigValue
+    configSnapshot: DetectionConfigValue,
+    tenantId?: string
   ): Promise<DetectionRunRecord> {
     const { data, error } = await supabaseAdmin
       .from('anomaly_detection_runs')
       .insert({
+        tenant_id: tenantId,
         trigger_type: triggerType,
         triggered_by: triggeredBy,
         status: 'running',
@@ -367,6 +377,7 @@ export class AnomalyService {
       if (this.isMissingRelationError(error)) {
         return {
           id: `scan-${Date.now()}`,
+          tenant_id: tenantId,
           started_at: new Date().toISOString(),
           completed_at: null,
           duration_seconds: null,
@@ -413,9 +424,10 @@ export class AnomalyService {
 
   async runDetectionScan(
     triggerType: 'scheduled' | 'manual',
-    triggeredBy: string | null
+    triggeredBy: string | null,
+    tenantId?: string
   ): Promise<{ run: DetectionRunRecord; result: DetectionResult }> {
-    console.log('🔍 [SERVICE] runDetectionScan called:', { triggerType, triggeredBy });
+    console.log('🔍 [SERVICE] runDetectionScan called:', { triggerType, triggeredBy, tenantId });
     
     console.log('🔍 [SERVICE] Getting detection config...');
     const config = await this.getDetectionConfig();
@@ -424,7 +436,7 @@ export class AnomalyService {
     const startedAt = Date.now();
     
     console.log('🔍 [SERVICE] Creating detection run...');
-    const run = await this.createDetectionRun(triggerType, triggeredBy, config.config_value);
+    const run = await this.createDetectionRun(triggerType, triggeredBy, config.config_value, tenantId);
     console.log('🔍 [SERVICE] Detection run created:', { runId: run.id, status: run.status });
 
     try {
@@ -432,10 +444,11 @@ export class AnomalyService {
       const result = await this.runAllDetections({
         detectionRunId: run.id,
         config: config.config_value,
+        tenantId,
       });
       console.log('🔍 [SERVICE] Detections completed:', { totalFound: result.total_found, byType: result.by_type });
 
-  const criticalCount = result.anomalies.filter((a) => a.severity === 'critical').length;
+      const criticalCount = result.anomalies.filter((a) => a.severity === 'critical').length;
       const warningCount = result.anomalies.filter((a) => a.severity === 'warning').length;
       const infoCount = result.anomalies.filter((a) => a.severity === 'info').length;
       const durationSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
@@ -533,9 +546,12 @@ export class AnomalyService {
     const warningRatio = options?.config?.thresholds?.quantity_discrepancy_warning_ratio ?? 0.1;
     const criticalRatio = options?.config?.thresholds?.quantity_discrepancy_critical_ratio ?? 0.3;
 
-    const { data: items, error } = await supabase
-      .from('items')
-      .select('*');
+    let query = supabaseAdmin.from('items').select('*');
+    if (options?.tenantId) {
+      query = query.eq('tenant_id', options.tenantId);
+    }
+    
+    const { data: items, error } = await query;
     
     if (error) throw error;
     
@@ -560,6 +576,7 @@ export class AnomalyService {
           recommendation: 'Verify physical inventory count and update the available quantity to match the actual stock.',
           metadata: { item_id: item.id, expected: item.quantity, available: item.available_quantity, discrepancy },
           detection_run_id: options?.detectionRunId,
+          tenant_id: options?.tenantId,
         });
         anomalies.push(anomaly);
       }
@@ -572,11 +589,17 @@ export class AnomalyService {
     const warningDays = options?.config?.thresholds?.overdue_warning_days ?? 3;
     const criticalDays = options?.config?.thresholds?.overdue_critical_days ?? 7;
 
-    const { data: lendings, error } = await supabase
+    let query = supabaseAdmin
       .from('lendings')
       .select('*, trainees(first_name, last_name)')
       .in('status', ['active', 'partially_returned'])
       .lt('expected_return_date', new Date().toISOString());
+    
+    if (options?.tenantId) {
+      query = query.eq('tenant_id', options.tenantId);
+    }
+    
+    const { data: lendings, error } = await query;
     
     if (error) throw error;
     
@@ -605,6 +628,7 @@ export class AnomalyService {
         recommendation: 'Contact the trainee immediately and request return or renewal of the borrowed item.',
         metadata: { lending_id: lending.id, days_overdue: daysOverdue, trainee_name: traineeName, expected_return_date: lending.expected_return_date },
         detection_run_id: options?.detectionRunId,
+        tenant_id: options?.tenantId,
       });
       anomalies.push(anomaly);
     }
@@ -613,9 +637,15 @@ export class AnomalyService {
   }
 
   async detectTraineeNameEmailMismatch(options?: DetectionRunOptions): Promise<Anomaly[]> {
-    const { data: trainees, error } = await supabase
+    let query = supabaseAdmin
       .from('trainees')
-      .select('id, first_name, last_name, middle_name, email');
+      .select('id, first_name, last_name, middle_name, email, tenant_id');
+    
+    if (options?.tenantId) {
+      query = query.eq('tenant_id', options.tenantId);
+    }
+    
+    const { data: trainees, error } = await query;
     
     if (error) throw error;
     
@@ -655,6 +685,7 @@ export class AnomalyService {
           recommendation: 'Verify the trainee\'s identity and correct the email address if it belongs to a different person.',
           metadata: { trainee_id: trainee.id, email: trainee.email },
           detection_run_id: options?.detectionRunId,
+          tenant_id: options?.tenantId,
         });
         anomalies.push(anomaly);
       }
@@ -751,7 +782,11 @@ export class AnomalyService {
 
   // Additional data-integrity checks (AN-9 additions)
   async detectImpossibleAvailability(options?: DetectionRunOptions): Promise<Anomaly[]> {
-    const { data: items, error } = await supabaseAdmin.from('items').select('*');
+    let query = supabaseAdmin.from('items').select('*');
+    if (options?.tenantId) {
+      query = query.eq('tenant_id', options.tenantId);
+    }
+    const { data: items, error } = await query;
     if (error) throw error;
     const anomalies: Anomaly[] = [];
     for (const item of items || []) {
@@ -768,6 +803,7 @@ export class AnomalyService {
           recommendation: 'Investigate inventory update logic and correct quantities.' ,
           metadata: { item_id: item.id, quantity: item.quantity, available: item.available_quantity },
           detection_run_id: options?.detectionRunId,
+          tenant_id: options?.tenantId,
         });
         anomalies.push(anomaly);
       }
@@ -776,7 +812,11 @@ export class AnomalyService {
   }
 
   async detectZeroQuantityLending(options?: DetectionRunOptions): Promise<Anomaly[]> {
-    const { data: lendings, error } = await supabaseAdmin.from('lendings').select('*');
+    let query = supabaseAdmin.from('lendings').select('*');
+    if (options?.tenantId) {
+      query = query.eq('tenant_id', options.tenantId);
+    }
+    const { data: lendings, error } = await query;
     if (error) throw error;
     const anomalies: Anomaly[] = [];
     for (const lending of lendings || []) {
@@ -793,6 +833,7 @@ export class AnomalyService {
           recommendation: 'Review lending input validation and correct the record.',
           metadata: { lending_id: lending.id },
           detection_run_id: options?.detectionRunId,
+          tenant_id: options?.tenantId,
         });
         anomalies.push(anomaly);
       }
@@ -801,7 +842,11 @@ export class AnomalyService {
   }
 
   async detectActiveTraineeWithoutProgram(options?: DetectionRunOptions): Promise<Anomaly[]> {
-    const { data: trainees, error } = await supabaseAdmin.from('trainees').select('*').eq('status', 'active');
+    let query = supabaseAdmin.from('trainees').select('*').eq('status', 'active');
+    if (options?.tenantId) {
+      query = query.eq('tenant_id', options.tenantId);
+    }
+    const { data: trainees, error } = await query;
     if (error) throw error;
     const anomalies: Anomaly[] = [];
     for (const trainee of trainees || []) {
@@ -818,6 +863,7 @@ export class AnomalyService {
           recommendation: 'Assign program or update trainee status.',
           metadata: { trainee_id: trainee.id },
           detection_run_id: options?.detectionRunId,
+          tenant_id: options?.tenantId,
         });
         anomalies.push(anomaly);
       }
@@ -826,7 +872,11 @@ export class AnomalyService {
   }
 
   async detectExpiredActiveProgram(options?: DetectionRunOptions): Promise<Anomaly[]> {
-    const { data: programs, error } = await supabaseAdmin.from('programs').select('*').eq('status', 'active');
+    let query = supabaseAdmin.from('programs').select('*').eq('status', 'active');
+    if (options?.tenantId) {
+      query = query.eq('tenant_id', options.tenantId);
+    }
+    const { data: programs, error } = await query;
     if (error) throw error;
     const anomalies: Anomaly[] = [];
     for (const program of programs || []) {
@@ -843,6 +893,7 @@ export class AnomalyService {
           recommendation: 'Review program status and update to inactive or extend end_date.',
           metadata: { program_id: program.id, end_date: program.end_date },
           detection_run_id: options?.detectionRunId,
+          tenant_id: options?.tenantId,
         });
         anomalies.push(anomaly);
       }
@@ -851,10 +902,16 @@ export class AnomalyService {
   }
 
   async detectLendingToInactiveTrainee(options?: DetectionRunOptions): Promise<Anomaly[]> {
-    const { data: lendings, error } = await supabase
+    let query = supabaseAdmin
       .from('lendings')
       .select('*, trainees(id, first_name, last_name, status)')
       .in('status', ['active', 'partially_returned']);
+    
+    if (options?.tenantId) {
+      query = query.eq('tenant_id', options.tenantId);
+    }
+    
+    const { data: lendings, error } = await query;
     if (error) throw error;
     const anomalies: Anomaly[] = [];
     for (const lending of lendings || []) {
@@ -872,6 +929,7 @@ export class AnomalyService {
           recommendation: 'Verify trainee status or close the lending record.',
           metadata: { lending_id: lending.id, trainee_id: lending.trainees.id, trainee_status: lending.trainees.status },
           detection_run_id: options?.detectionRunId,
+          tenant_id: options?.tenantId,
         });
         anomalies.push(anomaly);
       }
@@ -880,13 +938,22 @@ export class AnomalyService {
   }
 
   async detectMinimumQuantityUnset(options?: DetectionRunOptions): Promise<Anomaly[]> {
-    const { data: items, error } = await supabaseAdmin.from('items').select('*');
+    const tenantId = options?.tenantId;
+    let query = supabaseAdmin.from('items').select('*');
+    
+    // Apply tenant filtering if tenantId is provided (non-super-admin)
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+    
+    const { data: items, error } = await query;
     if (error) throw error;
     const anomalies: Anomaly[] = [];
     for (const item of items || []) {
       if (item.minimum_quantity == null || Number(item.minimum_quantity) === 0) {
         if (await this.hasUnresolvedAnomaly('minimum_quantity_unset', item.id)) continue;
         const anomaly = await this.createAnomaly({
+          tenant_id: tenantId,
           category: 'inventory',
           anomaly_type: 'minimum_quantity_unset',
           entity_type: 'item',
@@ -1029,13 +1096,13 @@ export class AnomalyService {
     return { resolved: updated?.length || 0 };
   }
 
-  async getAnomalyStats(): Promise<{
+  async getAnomalyStats(tenantId?: string): Promise<{
     total: number;
     byStatus: Record<string, number>;
     bySeverity: Record<string, number>;
     byType: Record<string, number>;
   }> {
-    const anomalies = await this.getAllAnomalies();
+    const anomalies = await this.getAllAnomalies(tenantId ? { tenantId } : undefined);
     
     const byStatus: Record<string, number> = {};
     const bySeverity: Record<string, number> = {};

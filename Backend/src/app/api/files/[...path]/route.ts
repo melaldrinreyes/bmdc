@@ -40,6 +40,7 @@ const MIME_TYPES: Record<string, string> = {
   '.png':  'image/png',
   '.gif':  'image/gif',
   '.webp': 'image/webp',
+  '.avif': 'image/avif',
   '.svg':  'image/svg+xml',
   '.pdf':  'application/pdf',
   '.doc':  'application/msword',
@@ -62,12 +63,7 @@ export const GET = withErrorHandler(
     request: NextRequest,
     context: { params: Promise<{ path: string[] }> }
   ) => {
-    // ── 1. Auth ─────────────────────────────────────────────────────────────
-    const ctxResult = requireTenantContext(request);
-    if (ctxResult.error) return ctxResult.error;
-    const { tenantId: userTenantId, userId, isSuperAdmin } = ctxResult.context;
-
-    // ── 2. Resolve path segments ─────────────────────────────────────────────
+    // ── 1. Resolve path segments first ──────────────────────────────────────
     const { path: segments } = await context.params;
 
     if (!segments || segments.length < 2) {
@@ -77,17 +73,33 @@ export const GET = withErrorHandler(
     // First segment is the tenant_id embedded in the URL
     const [fileTenantId, ...rest] = segments;
 
-    // ── 3. Validate the tenant_id in the URL ─────────────────────────────────
+    // ── 2. Check if this is a public CMS asset ──────────────────────────────
+    // CMS images (logo, hero background) and their thumbnails should be publicly accessible
+    const isPublicCMSAsset = rest[0] === 'images' && rest[1] === 'cms';
+
+    // ── 3. Auth (skip for public CMS assets) ────────────────────────────────
+    let userTenantId: string | undefined;
+    let userId: string | undefined;
+    let isSuperAdmin = false;
+
+    if (!isPublicCMSAsset) {
+      const ctxResult = requireTenantContext(request);
+      if (ctxResult.error) return ctxResult.error;
+      ({ tenantId: userTenantId, userId, isSuperAdmin } = ctxResult.context);
+    }
+
+    // ── 4. Validate the tenant_id in the URL ─────────────────────────────────
     try {
       validateTenantId(fileTenantId);
     } catch {
       return notFoundResponse('Invalid file path');
     }
 
-    // ── 4. Tenant isolation check (Req 15.3, 15.4) ───────────────────────────
+    // ── 5. Tenant isolation check (Req 15.3, 15.4) ───────────────────────────
+    // Skip check for public CMS assets
     const filePath = `/uploads/${fileTenantId}/${rest.join('/')}`;
 
-    if (!isSuperAdmin && fileTenantId.toLowerCase() !== userTenantId.toLowerCase()) {
+    if (!isPublicCMSAsset && !isSuperAdmin && userTenantId && fileTenantId.toLowerCase() !== userTenantId.toLowerCase()) {
       // Log the cross-tenant access attempt (Req 15.7)
       logger.warn('[FILE_ACCESS] Cross-tenant access attempt blocked', {
         userId,
@@ -99,22 +111,22 @@ export const GET = withErrorHandler(
       return forbiddenResponse('You do not have permission to access this file');
     }
 
-    // ── 5. Resolve absolute path and guard against traversal ─────────────────
+    // ── 6. Resolve absolute path and guard against traversal ─────────────────
     const relativeParts = [fileTenantId, ...rest];
     const absolutePath = path.join(UPLOAD_BASE_DIR, ...relativeParts);
 
     // Ensure the resolved path stays within UPLOAD_BASE_DIR
     if (!absolutePath.startsWith(UPLOAD_BASE_DIR)) {
       logger.warn('[FILE_ACCESS] Path traversal attempt blocked', {
-        userId,
-        userTenantId,
+        userId: userId || 'public',
+        userTenantId: userTenantId || 'none',
         filePath,
         timestamp: new Date().toISOString(),
       });
       return forbiddenResponse('Invalid file path');
     }
 
-    // ── 6. Read file ──────────────────────────────────────────────────────────
+    // ── 7. Read file ──────────────────────────────────────────────────────────
     let fileBuffer: Buffer;
     try {
       fileBuffer = await fs.readFile(absolutePath);
@@ -122,9 +134,10 @@ export const GET = withErrorHandler(
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         // Log access attempt even for missing files (Req 15.7)
         logger.info('[FILE_ACCESS] File not found', {
-          userId,
-          userTenantId,
+          userId: userId || 'public',
+          userTenantId: userTenantId || 'none',
           filePath,
+          isPublicCMSAsset,
           timestamp: new Date().toISOString(),
         });
         return notFoundResponse('File not found');
@@ -132,16 +145,17 @@ export const GET = withErrorHandler(
       throw err;
     }
 
-    // ── 7. Log successful access (Req 15.7) ───────────────────────────────────
+    // ── 8. Log successful access (Req 15.7) ───────────────────────────────────
     logger.info('[FILE_ACCESS] File served', {
-      userId,
-      tenantId: userTenantId,
+      userId: userId || 'public',
+      tenantId: userTenantId || fileTenantId,
       filePath,
+      isPublicCMSAsset,
       sizeBytes: fileBuffer.length,
       timestamp: new Date().toISOString(),
     });
 
-    // ── 8. Return file with appropriate headers ───────────────────────────────
+    // ── 9. Return file with appropriate headers ───────────────────────────────
     const filename = path.basename(absolutePath);
     const mimeType = getMimeType(filename);
 

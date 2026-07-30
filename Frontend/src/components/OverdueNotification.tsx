@@ -8,16 +8,22 @@ import logger from '../utils/logger';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function OverdueNotification() {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isAuthReady } = useAuth();
   const [overdueItems, setOverdueItems] = useState<OverdueLending[]>([]);
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const shouldShow = isAuthenticated && user && ['super_admin', 'local_admin', 'staff_inventory_manager'].includes(user.role);
+
   useEffect(() => {
-    // Only fetch if user is authenticated
-    if (!isAuthenticated) {
+    if (!isAuthReady) {
+      return;
+    }
+
+    // Only fetch for roles that can actually view overdue lendings.
+    if (!shouldShow) {
       return;
     }
 
@@ -29,7 +35,7 @@ export default function OverdueNotification() {
     }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [isAuthenticated]);
+  }, [shouldShow, isAuthReady]);
 
   const fetchOverdueItems = async () => {
     try {
@@ -46,7 +52,10 @@ export default function OverdueNotification() {
         setIsDismissed(false);
       }
     } catch (error) {
-      logger.error('Failed to fetch overdue items', { error });
+      const status = (error as any)?.status ?? (error as any)?.response?.status;
+      if (status !== 403 && status !== 404) {
+        logger.error('Failed to fetch overdue items', { error });
+      }
     } finally {
       setLoading(false);
     }
@@ -62,7 +71,7 @@ export default function OverdueNotification() {
   };
 
   // Don't render if not authenticated
-  if (!isAuthenticated || !isVisible || overdueItems.length === 0 || loading) {
+  if (!shouldShow || !isVisible || overdueItems.length === 0 || loading) {
     return null;
   }
 

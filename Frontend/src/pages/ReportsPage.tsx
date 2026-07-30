@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import reportService from '../services/reportService';
 import logger from '../utils/logger';
 import PrintableReport from '../components/PrintableReport';
+import { useAuth } from '../contexts/AuthContext';
 import {
   LineChart,
   Line,
@@ -28,6 +29,7 @@ import {
 } from 'recharts';
 
 export default function ReportsPage() {
+  const { isAuthReady, hasPermission } = useAuth();
   const [dateFrom, setDateFrom] = useState('2024-10-01');
   const [dateTo, setDateTo] = useState('2024-10-31');
   const [reportType, setReportType] = useState('all');
@@ -55,8 +57,17 @@ export default function ReportsPage() {
 
   // Fetch report data from backend
   useEffect(() => {
+    if (!isAuthReady) {
+      return;
+    }
+
     fetchReportData();
-  }, [dateFrom, dateTo, reportType]);
+  }, [dateFrom, dateTo, reportType, isAuthReady]);
+
+  const isForbidden = (error: unknown) => {
+    const status = (error as any)?.status ?? (error as any)?.response?.status;
+    return status === 403 || status === 404;
+  };
 
   const fetchReportData = async () => {
     try {
@@ -67,16 +78,31 @@ export default function ReportsPage() {
       };
 
       // Fetch activity analytics (currently not implemented in backend)
-      try {
-        const activityResponse: any = await reportService.getActivityAnalytics(filters);
-        if (activityResponse?.trend) {
-          setActivityData(activityResponse.trend.map((item: any) => ({
-            date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            borrowed: item.borrowed || 0,
-            returned: item.returned || 0
-          })));
+      if (hasPermission('canViewActivityLogs')) {
+        try {
+          const activityResponse: any = await reportService.getActivityAnalytics(filters);
+          if (activityResponse?.trend) {
+            setActivityData(activityResponse.trend.map((item: any) => ({
+              date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              borrowed: item.borrowed || 0,
+              returned: item.returned || 0
+            })));
+          }
+        } catch (error) {
+          if (!isForbidden(error)) {
+            logger.error('Failed to fetch activity analytics', { error });
+          }
+          // Set mock data for demonstration
+          setActivityData([
+            { date: 'Feb 20', borrowed: 5, returned: 3 },
+            { date: 'Feb 21', borrowed: 8, returned: 6 },
+            { date: 'Feb 22', borrowed: 12, returned: 9 },
+            { date: 'Feb 23', borrowed: 7, returned: 11 },
+            { date: 'Feb 24', borrowed: 9, returned: 8 },
+            { date: 'Feb 25', borrowed: 6, returned: 7 }
+          ]);
         }
-      } catch (error) {
+      } else {
         // Set mock data for demonstration
         setActivityData([
           { date: 'Feb 20', borrowed: 5, returned: 3 },
@@ -96,6 +122,9 @@ export default function ReportsPage() {
           setCategoryData(categoryEntries.map(([name, value]) => ({ name, value })));
         }
       } catch (error) {
+        if (!isForbidden(error)) {
+          logger.error('Failed to fetch inventory report', { error });
+        }
         // Set mock data for demonstration
         setCategoryData([
           { name: 'Tools', value: 45 },
@@ -115,6 +144,9 @@ export default function ReportsPage() {
           })));
         }
       } catch (error) {
+        if (!isForbidden(error)) {
+          logger.error('Failed to fetch program report', { error });
+        }
         // Set mock data for demonstration
         setProgramData([
           { program: 'Computer Literacy', trainees: 25 },

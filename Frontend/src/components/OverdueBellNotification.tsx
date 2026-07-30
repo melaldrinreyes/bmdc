@@ -8,7 +8,7 @@ import logger from '../utils/logger';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function OverdueBellNotification() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isAuthReady } = useAuth();
   const [overdueItems, setOverdueItems] = useState<any[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -17,6 +17,10 @@ export default function OverdueBellNotification() {
     ['super_admin', 'local_admin', 'staff_inventory_manager'].includes(user.role);
 
   useEffect(() => {
+    if (!isAuthReady) {
+      return;
+    }
+
     if (!shouldShow) {
       return;
     }
@@ -29,7 +33,7 @@ export default function OverdueBellNotification() {
     }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [shouldShow]);
+  }, [shouldShow, isAuthReady]);
 
   const fetchOverdueItems = async () => {
     try {
@@ -37,7 +41,10 @@ export default function OverdueBellNotification() {
       const items = response.data || [];
       setOverdueItems(items);
     } catch (error) {
-      logger.error('Failed to fetch overdue items for bell notification', { error });
+      const status = (error as any)?.status ?? (error as any)?.response?.status;
+      if (status !== 403 && status !== 404) {
+        logger.error('Failed to fetch overdue items for bell notification', { error });
+      }
     }
   };
 

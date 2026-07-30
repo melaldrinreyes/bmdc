@@ -1,0 +1,12 @@
+{
+  "name": "bmdc-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k -n backend,frontend \"npm run dev --prefix Backend\" \"npm run dev --prefix Frontend\"",
+    "dev:backend": "npm run dev --prefix Backend",
+    "dev:frontend": "npm run dev --prefix Frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

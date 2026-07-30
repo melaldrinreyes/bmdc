@@ -58,7 +58,7 @@ export const SECURITY_CONFIG = {
   // Content Security
   contentSecurity: {
     maxFileSize: 5 * 1024 * 1024, // 5MB
-    allowedImageTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+    allowedImageTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'],
     allowedDocumentTypes: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
   },
 };

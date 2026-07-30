@@ -10,12 +10,12 @@ import logger from '@/utils/logger';
  */
 export const PUT = withErrorHandler(async (
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) => {
   const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
   if ('error' in authResult) return authResult.error;
-
-  const id = params.id;
+  const resolvedParams = await params;
+  const id = resolvedParams.id;
   const body = await request.json();
 
   const updated = await nonAttendanceDateService.updateNonAttendanceDate(id, body);
@@ -30,12 +30,12 @@ export const PUT = withErrorHandler(async (
  */
 export const DELETE = withErrorHandler(async (
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) => {
   const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
   if ('error' in authResult) return authResult.error;
-
-  const id = params.id;
+  const resolvedParams = await params;
+  const id = resolvedParams.id;
 
   await nonAttendanceDateService.deleteNonAttendanceDate(id);
 

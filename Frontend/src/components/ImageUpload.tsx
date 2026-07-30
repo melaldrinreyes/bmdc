@@ -177,7 +177,7 @@ export default function ImageUpload({ value, onChange, onFileChange, label, desc
                 {isDragging ? 'Drop image here' : 'Click to upload or drag and drop'}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                PNG, JPG, GIF up to 5MB
+                PNG, JPG, GIF, WebP, AVIF up to 5MB
               </p>
             </div>
           </div>

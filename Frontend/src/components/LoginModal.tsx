@@ -9,10 +9,19 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Eye, EyeOff, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { UserRole } from '../utils/roles';
+import { getFileUrl } from '../services/api';
+import cmsSettingsService from '../services/cmsSettingsService';
 
 interface LoginModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+interface CMSSettings {
+  appearance: {
+    logo: string;
+    heroBackground: string;
+  };
 }
 
 /** Determine the correct post-login route for a given role. */
@@ -27,6 +36,7 @@ function getDashboardRoute(role: UserRole | string): string {
 export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
   const navigate = useNavigate();
   const { login, selectTenant, isAuthenticated, user } = useAuth();
+  const [cmsSettings, setCmsSettings] = useState<CMSSettings | null>(null);
 
   // ── Credentials step ─────────────────────────────────────────────────────
   const [email, setEmail]               = useState('');
@@ -40,6 +50,21 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
     useState<TenantSelectionRequired | null>(null);
   const [selectedTenantId, setSelectedTenantId] = useState('');
   const [selectingTenant, setSelectingTenant]   = useState(false);
+
+  // Load CMS settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const data = await cmsSettingsService.getSettings();
+        if (data) {
+          setCmsSettings(data as CMSSettings);
+        }
+      } catch (error) {
+        console.error('Failed to load CMS settings:', error);
+      }
+    };
+    loadSettings();
+  }, []);
 
   // When already authenticated, close and go to the right dashboard
   useEffect(() => {
@@ -178,7 +203,15 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
           <>
             <DialogHeader className="px-6 pt-6 pb-4">
               <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-primary shadow-lg">
-                <span className="text-2xl text-primary-foreground">BMDC</span>
+                {cmsSettings?.appearance?.logo ? (
+                  <img 
+                    src={getFileUrl(cmsSettings.appearance.logo)} 
+                    alt="Logo" 
+                    className="size-14 rounded-xl object-contain"
+                  />
+                ) : (
+                  <span className="text-2xl text-primary-foreground">BMDC</span>
+                )}
               </div>
               <DialogTitle className="text-center">Welcome Back</DialogTitle>
               <DialogDescription className="text-center">

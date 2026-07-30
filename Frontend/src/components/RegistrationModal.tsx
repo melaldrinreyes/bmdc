@@ -10,10 +10,11 @@ import { Skeleton } from './ui/skeleton';
 import {
   User, Lock, MapPin, GraduationCap,
   BookOpen, CheckCircle2, ChevronRight, ChevronLeft,
-  Calendar, Users
+  Calendar, Users, Mail, MessageSquare, Loader
 } from 'lucide-react';
 import registrationService, { SubmitRegistrationData } from '../services/registrationService';
 import programService from '../services/programService';
+import { verificationService } from '../services/verificationService';
 
 interface Program {
   id: string;
@@ -36,6 +37,7 @@ const STEPS = [
   { id: 3, title: 'Address', icon: MapPin, description: 'Your current address' },
   { id: 4, title: 'Background', icon: GraduationCap, description: 'Education & employment' },
   { id: 5, title: 'Program', icon: BookOpen, description: 'Choose your program' },
+  { id: 6, title: 'Verify', icon: Mail, description: 'Verify your email' },
 ];
 
 type FormData = SubmitRegistrationData & { confirm_password: string; phone: string };
@@ -57,6 +59,14 @@ export default function RegistrationModal({ open, onOpenChange }: RegistrationMo
   const [loadingPrograms, setLoadingPrograms] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // Verification states
+  const [verificationMethod, setVerificationMethod] = useState<'email' | 'whatsapp' | 'both'>('both');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [codeVerified, setCodeVerified] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [verificationError, setVerificationError] = useState('');
 
   useEffect(() => {
     if (open) {
@@ -71,6 +81,10 @@ export default function RegistrationModal({ open, onOpenChange }: RegistrationMo
       setForm(EMPTY_FORM);
       setErrors({});
       setSubmitted(false);
+      setVerificationCode('');
+      setCodeVerified(false);
+      setCodeSent(false);
+      setVerificationError('');
     }
   }, [open]);
 
@@ -82,6 +96,46 @@ export default function RegistrationModal({ open, onOpenChange }: RegistrationMo
       toast.error('Failed to load programs');
     } finally {
       setLoadingPrograms(false);
+    }
+  };
+
+  const handleSendVerificationCode = async () => {
+    setVerificationError('');
+    setSendingCode(true);
+    try {
+      await verificationService.sendVerificationCode({
+        email: form.email,
+        phone: form.phone,
+        method: verificationMethod,
+        firstName: form.first_name,
+      });
+      setCodeSent(true);
+      toast.success(`Verification code sent via ${verificationMethod === 'both' ? 'email and WhatsApp' : verificationMethod}!`);
+    } catch (error: any) {
+      setVerificationError(error?.message || 'Failed to send verification code');
+      toast.error('Failed to send verification code');
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!verificationCode.trim()) {
+      setVerificationError('Please enter the verification code');
+      return;
+    }
+    
+    setVerificationError('');
+    setVerifyingCode(true);
+    try {
+      await verificationService.verifyCode(form.email, verificationCode);
+      setCodeVerified(true);
+      toast.success('Email verified successfully!');
+    } catch (error: any) {
+      setVerificationError(error?.message || 'Invalid verification code');
+      toast.error('Verification failed');
+    } finally {
+      setVerifyingCode(false);
     }
   };
 
@@ -135,6 +189,10 @@ export default function RegistrationModal({ open, onOpenChange }: RegistrationMo
 
     if (s === 5) {
       if (!form.program_id) errs.program_id = 'Please select a program';
+    }
+
+    if (s === 6) {
+      if (!codeVerified) setVerificationError('Please verify your email first');
     }
 
     setErrors(errs);
@@ -510,6 +568,151 @@ export default function RegistrationModal({ open, onOpenChange }: RegistrationMo
               </div>
             </>
           )}
+
+          {/* STEP 6 – Email Verification */}
+          {step === 6 && (
+            <>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  We've sent a verification code to <span className="font-medium">{form.email}</span> and via WhatsApp to <span className="font-medium">{form.phone}</span>.
+                </p>
+
+                {!codeSent && (
+                  <>
+                    <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-300">Choose verification method:</p>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50">
+                          <input
+                            type="radio"
+                            name="verificationMethod"
+                            value="email"
+                            checked={verificationMethod === 'email'}
+                            onChange={(e) => setVerificationMethod(e.target.value as 'email' | 'whatsapp' | 'both')}
+                            className="w-4 h-4"
+                          />
+                          <div className="flex items-center gap-2">
+                            <Mail className="size-4 text-blue-600 dark:text-blue-400" />
+                            <span className="text-sm">Via Email</span>
+                          </div>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50">
+                          <input
+                            type="radio"
+                            name="verificationMethod"
+                            value="whatsapp"
+                            checked={verificationMethod === 'whatsapp'}
+                            onChange={(e) => setVerificationMethod(e.target.value as 'email' | 'whatsapp' | 'both')}
+                            className="w-4 h-4"
+                          />
+                          <div className="flex items-center gap-2">
+                            <MessageSquare className="size-4 text-green-600 dark:text-green-400" />
+                            <span className="text-sm">Via WhatsApp</span>
+                          </div>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50">
+                          <input
+                            type="radio"
+                            name="verificationMethod"
+                            value="both"
+                            checked={verificationMethod === 'both'}
+                            onChange={(e) => setVerificationMethod(e.target.value as 'email' | 'whatsapp' | 'both')}
+                            className="w-4 h-4"
+                          />
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="size-4 text-primary dark:text-primary" />
+                            <span className="text-sm">Both Email & WhatsApp</span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={handleSendVerificationCode}
+                      disabled={sendingCode}
+                      className="w-full"
+                      size="lg"
+                    >
+                      {sendingCode ? (
+                        <>
+                          <Loader className="mr-2 size-4 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>Send Verification Code</>
+                      )}
+                    </Button>
+                  </>
+                )}
+
+                {codeSent && !codeVerified && (
+                  <>
+                    <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950/30">
+                      <p className="text-sm text-green-900 dark:text-green-300">
+                        ✓ Verification code sent! Check your email and/or WhatsApp for the 6-digit code.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="verificationCode">Enter Verification Code *</Label>
+                      <Input
+                        id="verificationCode"
+                        type="text"
+                        value={verificationCode}
+                        onChange={(e) => {
+                          setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                          setVerificationError('');
+                        }}
+                        placeholder="000000"
+                        maxLength={6}
+                        className="text-center text-2xl tracking-widest font-mono"
+                      />
+                      {verificationError && <p className="text-xs text-destructive">{verificationError}</p>}
+                    </div>
+
+                    <Button
+                      onClick={handleVerifyCode}
+                      disabled={verifyingCode || verificationCode.length !== 6}
+                      className="w-full"
+                      size="lg"
+                    >
+                      {verifyingCode ? (
+                        <>
+                          <Loader className="mr-2 size-4 animate-spin" />
+                          Verifying...
+                        </>
+                      ) : (
+                        <>Verify Code</>
+                      )}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={handleSendVerificationCode}
+                      disabled={sendingCode}
+                      className="w-full"
+                    >
+                      Resend Code
+                    </Button>
+                  </>
+                )}
+
+                {codeVerified && (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950/30">
+                      <div className="flex items-center gap-2 text-green-900 dark:text-green-300">
+                        <CheckCircle2 className="size-5" />
+                        <span className="font-medium">Email verified successfully!</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Your email and WhatsApp have been verified. You're all set to submit your registration!
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Navigation */}
@@ -528,7 +731,7 @@ export default function RegistrationModal({ open, onOpenChange }: RegistrationMo
                 Next <ChevronRight className="ml-1 size-4" />
               </Button>
             ) : (
-              <Button onClick={handleSubmit} disabled={submitting}>
+              <Button onClick={handleSubmit} disabled={submitting || !codeVerified}>
                 {submitting ? 'Submitting...' : (
                   <>Submit Registration <CheckCircle2 className="ml-2 size-4" /></>
                 )}

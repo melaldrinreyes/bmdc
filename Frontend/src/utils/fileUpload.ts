@@ -76,9 +76,9 @@ export const validateImageFile = (file: File, maxSizeMB: number = 5): { valid: b
   }
 
   // Check allowed types
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/avif'];
   if (!allowedTypes.includes(file.type)) {
-    return { valid: false, error: 'Image must be JPG, PNG, GIF, or WebP' };
+    return { valid: false, error: 'Image must be JPG, PNG, GIF, WebP, or AVIF' };
   }
 
   // Check file size

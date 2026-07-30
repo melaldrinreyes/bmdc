@@ -45,17 +45,18 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   const response = NextResponse.json({ success: true, data: null, message: 'Logged out successfully' });
   // Clear the auth cookie (SEC-4/5) - must match the sameSite setting used when setting the cookie
+  const isProduction = process.env.NODE_ENV === 'production';
   response.cookies.set('auth_token', '', { 
     httpOnly: true, 
-    secure: true,
-    sameSite: 'none',
+    secure: isProduction,
+    sameSite: isProduction ? 'strict' : 'lax',
     maxAge: 0, 
     path: '/' 
   });
   response.cookies.set('refresh_token', '', { 
     httpOnly: true, 
-    secure: true,
-    sameSite: 'none',
+    secure: isProduction,
+    sameSite: isProduction ? 'strict' : 'lax',
     maxAge: 0, 
     path: '/' 
   });

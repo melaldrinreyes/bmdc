@@ -199,13 +199,14 @@ export async function OPTIONS(request: NextRequest) {
  * Local Admins can only update their own tenant; Super Admins can update any.
  */
 export const PATCH = withErrorHandler(
-  async (request: NextRequest, context: { params: { id: string } }) => {
+  async (request: NextRequest, context: { params: { id: string } | Promise<{ id: string }> }) => {
     // ── 1. Authenticate and extract tenant context ─────────────────────────
     const contextResult = requireTenantContext(request);
     if (contextResult.error) return contextResult.error;
 
     const { tenantId: callerTenantId, userId, role, isSuperAdmin } = contextResult.context;
-    const targetTenantId = context.params.id;
+    const resolvedParams = await context.params;
+    const targetTenantId = resolvedParams.id;
 
     // ── 2. Authorise ───────────────────────────────────────────────────────
     // Local Admins can only update their own tenant's configuration.
@@ -281,13 +282,14 @@ export const PATCH = withErrorHandler(
  * Local Admins can only read their own tenant; Super Admins can read any.
  */
 export const GET = withErrorHandler(
-  async (request: NextRequest, context: { params: { id: string } }) => {
+  async (request: NextRequest, context: { params: { id: string } | Promise<{ id: string }> }) => {
     // ── 1. Authenticate and extract tenant context ─────────────────────────
     const contextResult = requireTenantContext(request);
     if (contextResult.error) return contextResult.error;
 
     const { tenantId: callerTenantId, userId, role, isSuperAdmin } = contextResult.context;
-    const targetTenantId = context.params.id;
+    const resolvedParams = await context.params;
+    const targetTenantId = resolvedParams.id;
 
     // ── 2. Authorise ───────────────────────────────────────────────────────
     if (!isSuperAdmin && callerTenantId !== targetTenantId) {

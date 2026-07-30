@@ -27,36 +27,49 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   const userId = authResult.user.userId;
   const userEmail = authResult.user.email;
-  console.log('🔍 [SCAN] Authenticated user:', { userId, userEmail, role: authResult.user.role });
+  const tenantId = authResult.user.tenantId;
+  const isSuperAdmin = authResult.user.role === 'super_admin';
+  console.log('🔍 [SCAN] Authenticated user:', { userId, userEmail, role: authResult.user.role, tenantId });
 
   // Run all detection checks and persist run history
-  console.log('🔍 [SCAN] Calling runDetectionScan...');
-  const { run, result } = await anomalyService.runDetectionScan('manual', userEmail);
-  console.log('🔍 [SCAN] Scan completed:', { runId: run.id, totalFound: result.total_found });
+  try {
+    console.log('🔍 [SCAN] Calling runDetectionScan...');
+    const { run, result } = await anomalyService.runDetectionScan('manual', userEmail, !isSuperAdmin ? tenantId : undefined);
+    console.log('🔍 [SCAN] Scan completed:', { runId: run.id, totalFound: result.total_found });
 
-  // Calculate counts by severity
-  const criticalCount = result.anomalies.filter(a => a.severity === 'critical').length;
-  const warningCount = result.anomalies.filter(a => a.severity === 'warning').length;
-  const infoCount = result.anomalies.filter(a => a.severity === 'info').length;
+    // Calculate counts by severity
+    const criticalCount = result.anomalies.filter(a => a.severity === 'critical').length;
+    const warningCount = result.anomalies.filter(a => a.severity === 'warning').length;
+    const infoCount = result.anomalies.filter(a => a.severity === 'info').length;
 
-  // Log the scan activity
-  console.log('🔍 [SCAN] Logging activity...');
-  await activityLogService.logAction(
-    userId,
-    'trigger_anomaly_scan',
-    'anomaly',
-    run.id, // Use the detection run ID as the entity_id
-    {
-      email: userEmail,
-      run_id: run.id,
-      total_found: result.total_found,
-      by_type: result.by_type,
-      critical_count: criticalCount,
-      warning_count: warningCount,
-      info_count: infoCount,
+    // Log the scan activity
+    console.log('🔍 [SCAN] Logging activity...');
+    try {
+      await activityLogService.logAction(
+        userId,
+        'trigger_anomaly_scan',
+        'anomaly',
+        run.id, // Use the detection run ID as the entity_id
+        {
+          email: userEmail,
+          run_id: run.id,
+          total_found: result.total_found,
+          by_type: result.by_type,
+          critical_count: criticalCount,
+          warning_count: warningCount,
+          info_count: infoCount,
+        }
+      );
+      console.log('🔍 [SCAN] Activity logged successfully');
+    } catch (logError) {
+      console.error('🔍 [SCAN] Activity logging failed:', logError);
+      // Don't fail the whole request if logging fails
     }
-  );
 
-  console.log('🔍 [SCAN] Returning success response');
-  return successResponse(run);
+    console.log('🔍 [SCAN] Returning success response');
+    return successResponse(run);
+  } catch (scanError) {
+    console.error('🔍 [SCAN] Detection scan failed:', scanError);
+    throw scanError;
+  }
 });

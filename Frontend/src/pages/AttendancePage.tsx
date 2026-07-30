@@ -28,6 +28,7 @@ import sessionService, { ProgramSession } from '../services/sessionService';
 import attendanceService, { Attendance, AttendanceStats } from '../services/attendanceService';
 import { api } from '../services/api';
 import type { Trainee } from '../services/traineeService';
+import { useAuth } from '../contexts/AuthContext';
 
 const STATUS_OPTIONS = [
   { value: 'present', label: 'Present', color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' },
@@ -55,6 +56,7 @@ function formatTime(t: string) {
 export default function AttendancePage() {
   const { id: programId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAuthReady, hasPermission } = useAuth();
 
   const [program, setProgram] = useState<any>(null);
   const [sessions, setSessions] = useState<ProgramSession[]>([]);
@@ -74,7 +76,14 @@ export default function AttendancePage() {
 
   // ── Load program, sessions, overall stats ────────────────────────────────────
   useEffect(() => {
-    if (!programId) return;
+    if (!programId || !isAuthReady) return;
+
+    if (!hasPermission('canManagePrograms')) {
+      toast.error('You do not have permission to view program attendance');
+      navigate('/programs', { replace: true });
+      return;
+    }
+
     setProgramLoading(true);
     Promise.all([
       programService.getProgramById(programId),
@@ -93,9 +102,17 @@ export default function AttendancePage() {
         const todaySession = list.find((s: ProgramSession) => s.session_date === today);
         setSelectedSessionId(todaySession?.id ?? list[0]?.id ?? '');
       })
-      .catch(() => toast.error('Failed to load program data'))
+      .catch((error: any) => {
+        if (error?.status === 403) {
+          toast.error('You do not have permission to view this program');
+          navigate('/programs', { replace: true });
+          return;
+        }
+
+        toast.error('Failed to load program data');
+      })
       .finally(() => setProgramLoading(false));
-  }, [programId]);
+  }, [programId, isAuthReady, hasPermission, navigate]);
 
   // ── Load attendance + enrolled trainees for selected session ─────────────────
   useEffect(() => {

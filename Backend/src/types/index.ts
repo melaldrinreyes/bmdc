@@ -103,6 +103,7 @@ export interface Lending {
 
 export interface Anomaly {
   id: string;
+  tenant_id?: string;
   category: 'trainee' | 'inventory' | 'lending' | 'program' | 'activity_log' | 'system';
   anomaly_type: string;
   severity: 'critical' | 'warning' | 'info';

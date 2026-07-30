@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import sharp from 'sharp';
 
 // Allowed file types
-const ALLOWED_IMAGE_TYPES = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+const ALLOWED_IMAGE_TYPES = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif'];
 const ALLOWED_DOCUMENT_TYPES = ['.pdf', '.doc', '.docx', '.xls', '.xlsx'];
 
 /**
@@ -223,29 +223,44 @@ export function getThumbnailPathForImagePath(imagePath: string | null | undefine
     return DEFAULT_THUMBNAIL_RELATIVE_PATH;
   }
 
-  const match = normalizedImagePath.match(/^\/uploads\/images\/([^/]+)\/(.+)$/);
-  if (!match) {
+  // Match both legacy paths (/uploads/images/{category}/{filename})
+  // and tenant-scoped paths (/uploads/{uuid}/images/{category}/{filename})
+  const legacyMatch = normalizedImagePath.match(/^\/uploads\/images\/([^/]+)\/(.+)$/);
+  const tenantMatch = normalizedImagePath.match(/^\/uploads\/([0-9a-fA-F\-]+)\/images\/([^/]+)\/(.+)$/);
+
+  let category: string | undefined;
+  let remainder: string | undefined;
+  let tenantId: string | undefined;
+
+  if (legacyMatch) {
+    [, category, remainder] = legacyMatch;
+  } else if (tenantMatch) {
+    [, tenantId, category, remainder] = tenantMatch;
+  } else {
     return DEFAULT_THUMBNAIL_RELATIVE_PATH;
   }
-
-  const [, category, remainder] = match;
 
   if (category === 'defaults') {
     return DEFAULT_THUMBNAIL_RELATIVE_PATH;
   }
 
-  if (remainder.startsWith('thumbnails/')) {
+  if (remainder?.startsWith('thumbnails/')) {
     return normalizedImagePath;
   }
 
-  const filename = path.posix.basename(remainder);
+  const filename = path.posix.basename(remainder || '');
   const baseName = path.posix.parse(filename).name;
 
   if (!baseName) {
     return DEFAULT_THUMBNAIL_RELATIVE_PATH;
   }
 
-  return `/uploads/images/${category}/thumbnails/${baseName}.webp`;
+  // Return thumbnail path in the same format as the original
+  if (tenantId) {
+    return `/uploads/${tenantId}/images/${category}/thumbnails/${baseName}.webp`;
+  } else {
+    return `/uploads/images/${category}/thumbnails/${baseName}.webp`;
+  }
 }
 
 async function pathExists(absolutePath: string): Promise<boolean> {

@@ -25,7 +25,7 @@ import logger from '../utils/logger';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, isAuthReady } = useAuth();
   const [stats, setStats] = useState<any[]>([]);
   const [analyticsData] = useState<any[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
@@ -48,9 +48,13 @@ export default function DashboardPage() {
 
   // Fetch dashboard data from backend
   useEffect(() => {
+    if (!isAuthReady) {
+      return;
+    }
+
     dashboardLogger.viewed();
     fetchDashboardData();
-  }, []);
+  }, [isAuthReady]);
 
   useEffect(() => {
     setActivityPage(1);

@@ -70,8 +70,9 @@ const getIconComponent = (iconName: string) => {
 export default function ProgramFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthReady } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
+  const [programLoaded, setProgramLoaded] = useState(!id);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -149,8 +150,13 @@ export default function ProgramFormPage() {
 
   // Load existing program data if editing
   useEffect(() => {
+    if (!isAuthReady) {
+      return;
+    }
+
     if (id) {
       setPageLoading(true);
+      setProgramLoaded(false);
       programService.getProgramById(id)
         .then(program => {
           const programData = program as any;
@@ -167,16 +173,30 @@ export default function ProgramFormPage() {
             instructor: programData.instructor || '',
           });
           setExistingImagePath(program.image_path || null);
+          setProgramLoaded(true);
         })
-        .catch(() => toast.error('Failed to load program'))
+        .catch((error: any) => {
+          if (error?.response?.status === 403 || error?.response?.status === 404) {
+            toast.error('You do not have access to this program');
+            navigate('/programs', { replace: true });
+            return;
+          }
+
+          toast.error('Failed to load program');
+        })
         .finally(() => setPageLoading(false));
     } else {
+      setProgramLoaded(true);
       setPageLoading(false);
     }
-  }, [id]);
+  }, [id, navigate, isAuthReady]);
 
   useEffect(() => {
-    if (id) {
+    if (!isAuthReady) {
+      return;
+    }
+
+    if (id && programLoaded) {
       setSessionsLoading(true);
       sessionService.getSessionsByProgram(id)
         .then(res => setSessions(
@@ -189,7 +209,7 @@ export default function ProgramFormPage() {
     } else {
       setSessions([]);
     }
-  }, [id]);
+  }, [id, programLoaded, isAuthReady]);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));

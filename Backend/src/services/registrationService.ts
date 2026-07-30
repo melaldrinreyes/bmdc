@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { hashPassword, generateToken } from '@/lib/auth';
+import { hashPassword } from '@/lib/auth';
 import { PendingRegistration } from '@/types';
 import { TraineeRegistrationInput } from '@/utils/validators';
 import { TenantContext } from '@/middleware/tenantContext';
@@ -23,7 +23,7 @@ export class RegistrationService {
    */
   async submitRegistration(data: TraineeRegistrationInput): Promise<PendingRegistration> {
     // Check for duplicate email in pending_registrations
-    const { data: existingPending, error: existingPendingError } = await supabase
+    const { data: existingPending, error: existingPendingError } = await supabaseAdmin
       .from('pending_registrations')
       .select('id, status')
       .eq('email', data.email.toLowerCase())
@@ -43,7 +43,7 @@ export class RegistrationService {
     }
 
     // Check if email already has an active user account
-    const { data: existingUser } = await supabase
+    const { data: existingUser } = await supabaseAdmin
       .from('users')
       .select('id')
       .eq('email', data.email.toLowerCase())
@@ -54,7 +54,7 @@ export class RegistrationService {
     }
 
     // Check if username is taken
-    const { data: existingUsername } = await supabase
+    const { data: existingUsername } = await supabaseAdmin
       .from('users')
       .select('id')
       .eq('username', data.username)
@@ -65,7 +65,7 @@ export class RegistrationService {
     }
 
     // Check for pending registration with same username
-    const { data: existingPendingUsername, error: existingPendingUsernameError } = await supabase
+    const { data: existingPendingUsername, error: existingPendingUsernameError } = await supabaseAdmin
       .from('pending_registrations')
       .select('id')
       .eq('username', data.username)
@@ -220,7 +220,7 @@ export class RegistrationService {
     if (userError) throw userError;
 
     // 2. Create trainee record
-    const qrCode = `TRAINEE-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const qrCode = `TRAINEE-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     const { data: trainee, error: traineeError } = await supabaseAdmin
       .from('trainees')
       .insert({

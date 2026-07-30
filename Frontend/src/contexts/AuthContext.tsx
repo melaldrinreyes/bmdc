@@ -27,6 +27,7 @@ interface AuthContextType {
   selectTenant: (selectionToken: string, tenantId: string) => Promise<boolean>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
+  isAuthReady: boolean;
   permissions: Permission;
   hasPermission: (permission: keyof Permission) => boolean;
 }
@@ -54,6 +55,7 @@ const DEFAULT_PERMISSIONS: Permission = {
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [user, setUser] = useState<User | null>(() => {
     const saved = sessionStorage.getItem('bmdc-user');
     return saved ? JSON.parse(saved) : null;
@@ -66,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Only probe /auth/me when the client already has a cached session.
     if (!savedUser) {
       setUser(null);
+      setIsAuthReady(true);
       return () => {
         mounted = false;
       };
@@ -92,6 +95,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!mounted) return;
         setUser(null);
         sessionStorage.removeItem('bmdc-user');
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setIsAuthReady(true);
       });
 
     return () => {
@@ -187,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, selectTenant, logout, isAuthenticated: !!user, permissions, hasPermission }}>
+    <AuthContext.Provider value={{ user, login, selectTenant, logout, isAuthenticated: !!user, isAuthReady, permissions, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );

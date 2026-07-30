@@ -36,10 +36,22 @@ const getRequestToken = (request: NextRequest): string | null => {
   const authHeader = request.headers.get('authorization');
   const cookieHeader = request.headers.get('cookie');
 
+  console.log('[getRequestToken] Attempting token extraction', {
+    hasAuthHeader: !!authHeader,
+    hasCookieHeader: !!cookieHeader,
+    authHeaderPrefix: authHeader?.substring(0, 20),
+  });
+
   let token = extractTokenFromHeader(authHeader || '');
   if (!token) {
     token = extractTokenFromCookie(cookieHeader);
   }
+
+  console.log('[getRequestToken] Token extraction result', {
+    tokenFound: !!token,
+    tokenLength: token?.length,
+    tokenPrefix: token?.substring(0, 20),
+  });
 
   return token;
 };
@@ -88,6 +100,8 @@ export const authenticateUser = async (request: NextRequest): Promise<JWTPayload
       userId: appUser.id,
       email: appUser.email,
       role: appUser.role,
+      tenantId: appUser.tenantId || 'platform',
+      jti: 'supabase-session',
     };
   }
 
@@ -96,9 +110,18 @@ export const authenticateUser = async (request: NextRequest): Promise<JWTPayload
     logger.warn('[AUTH_OBSERVABILITY] Token verification failed', {
       authPath: config.supabaseJwtVerification ? 'supabase' : 'custom',
       url: request.url,
+      tokenLength: token.length,
     });
     return null;
   }
+
+  console.log('[authenticateUser] Token verification successful', {
+    payloadKeys: Object.keys(payload),
+    userId: payload.userId,
+    tenantId: payload.tenantId,
+    role: payload.role,
+    hasUserId: 'userId' in payload,
+  });
 
   // Check revocation list
   if (payload.jti && await isTokenRevoked(payload.jti)) {

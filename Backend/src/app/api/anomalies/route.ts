@@ -10,10 +10,12 @@ export async function OPTIONS(request: NextRequest) {
   return handleOptionsRequest(request);
 }
 
-// GET /api/anomalies - Get all anomalies
+// GET /api/anomalies - Get all anomalies (tenant-scoped)
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const authResult = await requireAuthAsync(request);
   if ('error' in authResult) return authResult.error;
+
+  const { tenantId, isSuperAdmin } = authResult.user;
   
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type') || undefined;
@@ -50,6 +52,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     search,
     entityType,
     entityId,
+    tenantId: !isSuperAdmin ? tenantId : undefined,
   }, {
     page,
     limit,

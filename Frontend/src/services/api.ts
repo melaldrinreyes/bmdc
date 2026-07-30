@@ -62,19 +62,30 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
-    // Log error in development
+    const status = error.response?.status;
+
+    // Log expected client/auth failures as warnings so fallback-driven flows
+    // do not flood the console with errors.
     if (import.meta.env.DEV) {
-      logger.error('[API Error]', {
+      const logPayload = {
         url: error.config?.url,
-        status: error.response?.status,
+        status,
         message: error.message,
         data: error.response?.data,
-      });
+      };
+
+      if (status && status >= 500) {
+        logger.error('[API Error]', logPayload);
+      } else if (status) {
+        logger.warn('[API Warning]', logPayload);
+      } else {
+        logger.error('[API Error]', logPayload);
+      }
     }
 
     // Handle 401 Unauthorized.
     // Try one refresh attempt using the cached session, then retry the original request.
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (status === 401 && !originalRequest._retry) {
       const hasCachedUser = !!sessionStorage.getItem('bmdc-user');
       originalRequest._retry = true;
 
@@ -104,17 +115,17 @@ apiClient.interceptors.response.use(
     }
 
     // Handle 403 Forbidden
-    if (error.response?.status === 403) {
+    if (status === 403) {
       logger.warn('Access forbidden - insufficient permissions');
     }
 
     // Handle 404 Not Found
-    if (error.response?.status === 404) {
+    if (status === 404) {
       logger.warn('Resource not found');
     }
 
     // Handle 500 Server Error
-    if (error.response?.status === 500) {
+    if (status === 500) {
       logger.error('Server error - please try again later');
     }
 
@@ -418,7 +429,7 @@ export function getThumbnailPath(path: string | null | undefined): string {
 
   // Tenant-scoped path: /uploads/{uuid}/images/{sub}/{filename}
   const tenantMatch = normalizedPath.match(
-    /^\/uploads\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/images\/([^/]+)\/(.+)$/i
+    /^\/uploads\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\/images\/([^/]+)\/(.+)$/
   );
   if (tenantMatch) {
     const [, tenantId, sub, remainder] = tenantMatch;

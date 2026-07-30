@@ -8,6 +8,16 @@ import { Avatar, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { getFileUrl } from '../services/api';
 import OverdueBellNotification from './OverdueBellNotification';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
 import { 
   LayoutDashboard, 
   Users, 
@@ -127,6 +137,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cmsSettings, setCmsSettings] = useState<any>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   // Helper function to get value from CMS settings
   const getValue = (setting: any): string => {
@@ -145,7 +156,12 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
     }
   }, []);
 
-  const handleLogout = async () => {
+  const openLogoutDialog = () => {
+    setLogoutDialogOpen(true);
+  };
+
+  const confirmLogout = async () => {
+    setLogoutDialogOpen(false);
     await logout();
     navigate('/');
   };
@@ -315,7 +331,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
                   {isDark ? 'Light Mode' : 'Dark Mode'}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
+                <DropdownMenuItem onClick={openLogoutDialog}>
                   <LogOut className="mr-2 size-4" />
                   Log out
                 </DropdownMenuItem>
@@ -467,7 +483,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
                 <button
                   onClick={() => {
                     setSidebarOpen(false);
-                    handleLogout();
+                      openLogoutDialog();
                   }}
                   className="ds-nav-item flex items-center gap-x-3 w-full rounded-lg px-3 py-2 text-destructive hover:bg-destructive/10"
                 >
@@ -545,7 +561,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
                       {isDark ? 'Light Mode' : 'Dark Mode'}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                    <DropdownMenuItem onClick={openLogoutDialog} className="text-destructive focus:text-destructive">
                       <LogOut className="mr-2 size-4" />
                       Log out
                     </DropdownMenuItem>
@@ -572,6 +588,21 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
           </div>
         </main>
       </div>
+
+      <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to log out?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will be signed out of your account and returned to the login screen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLogout}>Log out</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Mobile Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card lg:hidden">

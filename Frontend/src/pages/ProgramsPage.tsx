@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/DashboardLayout';
 import ProgramDetailsModal from '../components/ProgramDetailsModal';
@@ -20,6 +20,7 @@ import {
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import logger from '../utils/logger';
+import { isProgramExpired, getProgramStatus, type Program } from '../utils/programHelpers';
 import { 
   GraduationCap, 
   Plus, 
@@ -46,39 +47,6 @@ import programService from '../services/programService';
 import { getThumbnailUrl } from '../services/api';
 import { TableSkeleton, CardGridSkeleton } from '../components/LoadingSkeletons';
 
-export interface Program {
-  id: string;
-  name: string;
-  description: string;
-  duration: string;
-  level: string;
-  icon: string;
-  status: 'active' | 'inactive';
-  startDate: string;
-  endDate: string;
-  photoUrl: string;
-  createdAt: string;
-  updatedAt: string;
-  instructor?: string;
-}
-
-// Helper function to check if program should be inactive based on end date
-export const isProgramExpired = (endDate: string): boolean => {
-  if (!endDate) return false;
-  const end = new Date(endDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Reset time to compare only dates
-  return end < today;
-};
-
-// Helper function to get actual program status
-export const getProgramStatus = (program: Program): 'active' | 'inactive' => {
-  if (isProgramExpired(program.endDate)) {
-    return 'inactive';
-  }
-  return program.status;
-};
-
 // Icon options for programs
 const iconOptions = [
   { value: 'Laptop', label: 'Computer/Laptop', icon: Laptop },
@@ -101,8 +69,9 @@ const getIconComponent = (iconName: string) => {
 };
 
 export default function ProgramsPage() {
-  const { hasPermission, user } = useAuth();
-  const navigate = useNavigate();  const [programs, setPrograms] = useState<Program[]>([]);
+  const { hasPermission, user, isAuthReady } = useAuth();
+  const navigate = useNavigate();  
+  const [programs, setPrograms] = useState<Program[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -112,11 +81,16 @@ export default function ProgramsPage() {
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const tableRowsPerPage = 10;
+  const location = useLocation();
 
   // Fetch programs from backend
   useEffect(() => {
+    if (!isAuthReady) {
+      return;
+    }
+
     fetchPrograms();
-  }, []);
+  }, [location.pathname, isAuthReady]); // Refetch when navigating back to this page
 
   const fetchPrograms = async () => {
     try {
@@ -127,20 +101,25 @@ export default function ProgramsPage() {
       });
       // Handle API response structure
       const programsArray = response?.data || response || [];
-      const mappedPrograms: Program[] = programsArray.map((serviceProgram: any) => ({
-        id: serviceProgram.id,
-        name: serviceProgram.name,
-        description: serviceProgram.description || '',
-        duration: serviceProgram.duration_weeks ? serviceProgram.duration_weeks.toString() : '',
-        level: (serviceProgram as any).level || '',
-        icon: 'GraduationCap',
-        status: serviceProgram.status === 'active' ? 'active' : 'inactive',
-        startDate: serviceProgram.start_date || '',
-        endDate: serviceProgram.end_date || '',
-        photoUrl: getThumbnailUrl(serviceProgram.thumbnail_path || serviceProgram.image_path),
-        createdAt: serviceProgram.created_at || '',
-        updatedAt: serviceProgram.updated_at || ''
-      }));
+      const mappedPrograms: Program[] = programsArray.map((serviceProgram: any) => {
+        // Store raw thumbnail/image path without cache-buster
+        // Cache-buster will be added at render time to ensure it's always fresh
+        let photoUrl = getThumbnailUrl(serviceProgram.thumbnail_path || serviceProgram.image_path);
+        return {
+          id: serviceProgram.id,
+          name: serviceProgram.name,
+          description: serviceProgram.description || '',
+          duration: serviceProgram.duration_weeks ? serviceProgram.duration_weeks.toString() : '',
+          level: (serviceProgram as any).level || '',
+          icon: 'GraduationCap',
+          status: serviceProgram.status === 'active' ? 'active' : 'inactive',
+          startDate: serviceProgram.start_date || '',
+          endDate: serviceProgram.end_date || '',
+          photoUrl,
+          createdAt: serviceProgram.created_at || '',
+          updatedAt: serviceProgram.updated_at || ''
+        };
+      });
       setPrograms(mappedPrograms);
     } catch (error) {
       logger.error('Failed to fetch programs', { error });
@@ -149,6 +128,14 @@ export default function ProgramsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Add cache-buster to image URLs at render time (not fetch time)
+  // This ensures images bypass browser cache when the component re-renders
+  const getCachebustedImageUrl = (baseUrl: string) => {
+    if (!baseUrl) return baseUrl;
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    return `${baseUrl}${separator}t=${Date.now()}`;
   };
 
   // Refetch when filters change
@@ -310,7 +297,7 @@ export default function ProgramsPage() {
                           <div className="flex items-center gap-3">
                             {program.photoUrl ? (
                               <div className="size-10 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shrink-0">
-                                <img src={program.photoUrl} alt={program.name} className="size-full object-cover" />
+                                <img src={getCachebustedImageUrl(program.photoUrl)} alt={program.name} className="size-full object-cover" />
                               </div>
                             ) : (
                               <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 shrink-0">
@@ -448,7 +435,7 @@ export default function ProgramsPage() {
                 >
                   {program.photoUrl && (
                     <div className="w-full h-48 rounded-t-xl overflow-hidden border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
-                      <img src={program.photoUrl} alt={program.name} className="w-full h-full object-cover" />
+                      <img src={getCachebustedImageUrl(program.photoUrl)} alt={program.name} className="w-full h-full object-cover" />
                     </div>
                   )}
                   <CardHeader>

@@ -10,12 +10,13 @@ export async function OPTIONS(request: NextRequest) {
   return handleOptionsRequest(request);
 }
 
-// GET /api/anomalies/summary - Get anomaly summary statistics
+// GET /api/anomalies/summary - Get anomaly summary statistics (tenant-scoped)
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const authResult = await requireAuthAsync(request);
   if ('error' in authResult) return authResult.error;
 
-  const stats = await anomalyService.getAnomalyStats();
+  const { tenantId, isSuperAdmin } = authResult.user;
+  const stats = await anomalyService.getAnomalyStats(!isSuperAdmin ? tenantId : undefined);
 
   return successResponse({
     total: stats.total,

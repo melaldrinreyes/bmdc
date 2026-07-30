@@ -135,10 +135,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   setAuthCookie(response, result.token);
 
   // Set refresh token cookie
+  const isProduction = process.env.NODE_ENV === 'production';
   response.cookies.set('refresh_token', refresh.token, {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    secure: isProduction,
+    sameSite: isProduction ? 'strict' : 'lax',
     maxAge: refreshTokenMaxAge,
     path: '/',
   });

@@ -8,9 +8,10 @@ import { motion, useScroll, useTransform } from 'motion/react';
 import LoginModal from '../components/LoginModal';
 import RegistrationModal from '../components/RegistrationModal';
 import ProgramDetailsModal from '../components/ProgramDetailsModal';
-import { getFileUrl, getThumbnailUrl } from '../services/api';
+import { getFileUrl } from '../services/api';
 import { programService } from '../services/programService';
-import { type Program, isProgramExpired } from './ProgramsPage';
+import { type Program, isProgramExpired } from '../utils/programHelpers';
+import { getContrastTextColor } from '../utils/contrastText';
 import logger from '../utils/logger';
 import cmsSettingsService from '../services/cmsSettingsService';
 import {
@@ -35,7 +36,6 @@ import {
   Phone,
   Mail,
   Sparkles,
-  ChevronDown,
   ArrowRight,
   Star,
 } from 'lucide-react';
@@ -153,6 +153,7 @@ export default function LandingPage() {
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [cmsSettings, setCmsSettings] = useState<CMSSettings>(defaultCmsSettings);
   const [heroImgLoaded, setHeroImgLoaded] = useState(false);
+  const [brokenProgramImages, setBrokenProgramImages] = useState<Record<string, boolean>>({});
   const heroRef = useRef<HTMLElement>(null);
 
   // Parallax scroll effect for hero background
@@ -211,21 +212,37 @@ export default function LandingPage() {
           programService.getPrograms({ status: 'upcoming' }),
         ]);
 
-        const toFrontend = (serviceProgram: any): Program => ({
-          id: serviceProgram.id,
-          name: serviceProgram.name,
-          description: serviceProgram.description || '',
-          duration: serviceProgram.duration_weeks ? `${serviceProgram.duration_weeks} weeks` : '',
-          level: (serviceProgram as any).level || '',
-          icon: 'GraduationCap',
-          status: serviceProgram.status === 'active' ? 'active' : 'inactive',
-          startDate: serviceProgram.start_date || '',
-          endDate: serviceProgram.end_date || '',
-          photoUrl: getThumbnailUrl(serviceProgram.thumbnail_path || serviceProgram.image_path),
-          createdAt: serviceProgram.created_at || '',
-          updatedAt: serviceProgram.updated_at || '',
-          instructor: serviceProgram.instructor || undefined,
-        });
+        const toFrontend = (serviceProgram: any): Program => {
+          // Prioritize image_path, fall back to thumbnail_path, ensure we have a photo URL
+          const imagePath = serviceProgram.image_path || serviceProgram.thumbnail_path;
+          const photoUrl = getFileUrl(imagePath);
+          
+          // Log for debugging
+          if (!imagePath) {
+            logger.warn('Program has no image_path or thumbnail_path', { 
+              programId: serviceProgram.id,
+              programName: serviceProgram.name,
+              received: { image_path: serviceProgram.image_path, thumbnail_path: serviceProgram.thumbnail_path }
+            });
+          }
+          
+          return {
+            id: serviceProgram.id,
+            name: serviceProgram.name,
+            description: serviceProgram.description || '',
+            duration: serviceProgram.duration_weeks ? `${serviceProgram.duration_weeks} weeks` : '',
+            level: (serviceProgram as any).level || '',
+            icon: 'GraduationCap',
+            status: serviceProgram.status === 'active' ? 'active' : 'inactive',
+            startDate: serviceProgram.start_date || '',
+            endDate: serviceProgram.end_date || '',
+            photoUrl,
+            imagePath: serviceProgram.image_path,
+            createdAt: serviceProgram.created_at || '',
+            updatedAt: serviceProgram.updated_at || '',
+            instructor: serviceProgram.instructor || undefined,
+          };
+        };
 
         const activePrograms: Program[] = (activeRes?.data || [])
           .map(toFrontend)
@@ -264,6 +281,14 @@ export default function LandingPage() {
   const heroBackground = cmsSettings.appearance.heroBackground
     ? getFileUrl(cmsSettings.appearance.heroBackground)
     : '';
+  const defaultThumbnailUrl = getFileUrl('/uploads/images/defaults/blank-thumbnail.webp');
+
+  const markProgramImageBroken = (programId: string) => {
+    setBrokenProgramImages(prev => (prev[programId] ? prev : { ...prev, [programId]: true }));
+  };
+
+  const hasProgramImage = (program: Program) =>
+    !!program.photoUrl && program.photoUrl !== defaultThumbnailUrl && !brokenProgramImages[program.id];
 
   // Split programs: currently running vs upcoming
   const runningPrograms = programs.filter(p => p.status === 'active' && !isProgramUpcoming(p.startDate));
@@ -273,30 +298,30 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* ─── STICKY HEADER ─── */}
-      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/95 backdrop-blur-2xl supports-[backdrop-filter]:bg-background/70 shadow-sm">
-        <div className="container mx-auto flex h-24 md:h-28 items-center justify-between px-4 md:px-6">
+      <header className="sticky top-0 z-50 border-b border-border bg-background shadow-md">
+        <div className="container mx-auto flex h-16 md:h-20 items-center justify-between px-4 md:px-6">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
-            className="flex items-center gap-3 md:gap-4"
+            className="flex items-center gap-2 md:gap-3"
           >
             {cmsSettings?.appearance?.logo ? (
               <img
                 src={getFileUrl(cmsSettings.appearance.logo)}
                 alt="BMDC Logo"
-                className="size-14 md:size-16 rounded-2xl object-contain shadow-lg ring-2 ring-primary/10"
+                className="h-10 w-10 md:h-12 md:w-12 rounded-lg object-contain shadow-md"
               />
             ) : (
-              <div className="flex size-14 md:size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-primary to-secondary shadow-lg ring-2 ring-primary/20">
-                <span className="text-base md:text-lg font-bold text-white">BMDC</span>
+              <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg bg-gradient-to-br from-primary via-primary to-secondary shadow-md">
+                <span className="text-sm md:text-base font-bold text-white">BMDC</span>
               </div>
             )}
             <div className="hidden sm:block">
-              <p className="text-lg md:text-xl font-bold leading-tight tracking-tight">
+              <p className="text-sm md:text-base font-bold leading-tight">
                 {getValue(cmsSettings?.footer?.companyName) || 'Bongabong MDC'}
               </p>
-              <p className="text-sm md:text-base font-medium text-muted-foreground">
+              <p className="text-xs md:text-sm font-medium text-muted-foreground">
                 {getValue(cmsSettings?.footer?.tagline) || 'Empowering Communities'}
               </p>
             </div>
@@ -306,23 +331,23 @@ export default function LandingPage() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
-            className="flex items-center gap-6 md:gap-8"
+            className="flex items-center gap-4 md:gap-6"
           >
-            <a href="#programs" className="hidden text-xl md:text-2xl font-bold text-slate-600 transition-all hover:text-primary hover:scale-105 md:block">
+            <a href="#programs" className="hidden text-sm md:text-base font-medium text-foreground/80 transition-colors hover:text-primary md:block">
               Programs
             </a>
-            <a href="#about" className="hidden text-xl md:text-2xl font-bold text-slate-600 transition-all hover:text-primary hover:scale-105 md:block">
+            <a href="#about" className="hidden text-sm md:text-base font-medium text-foreground/80 transition-colors hover:text-primary md:block">
               About Us
             </a>
-            <a href="#contact" className="hidden text-xl md:text-2xl font-bold text-slate-600 transition-all hover:text-primary hover:scale-105 md:block">
+            <a href="#contact" className="hidden text-sm md:text-base font-medium text-foreground/80 transition-colors hover:text-primary md:block">
               Contact
             </a>
             {isAuthenticated ? (
               <Link to="/dashboard">
-                <Button size="lg" className="shadow-lg hover:shadow-xl transition-all hover:scale-105 font-bold text-xl md:text-2xl px-10 md:px-14 py-4 md:py-5 rounded-xl">Dashboard</Button>
+                <Button size="sm" className="shadow-sm hover:shadow-md transition-all">Dashboard</Button>
               </Link>
             ) : (
-              <Button size="lg" onClick={() => setIsLoginModalOpen(true)} className="shadow-lg hover:shadow-xl transition-all hover:scale-105 font-bold text-xl md:text-2xl px-10 md:px-14 py-4 md:py-5 rounded-xl">
+              <Button size="sm" onClick={() => setIsLoginModalOpen(true)} className="shadow-sm hover:shadow-md transition-all">
                 Login
               </Button>
             )}
@@ -397,7 +422,7 @@ export default function LandingPage() {
               variants={fadeInUp}
               className="mb-3 md:mb-6 text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black leading-[0.95] md:leading-[0.9] tracking-tight"
             >
-              <span className="text-white" style={{ textShadow: '0 4px 30px rgba(0,0,0,0.8), 0 2px 10px rgba(0,0,0,0.6)' }}>
+              <span className="text-white">
                 BMDC - EMPOWERING COMMUNITIES
               </span>
             </motion.h1>
@@ -407,7 +432,7 @@ export default function LandingPage() {
               variants={fadeInUp}
               className="mb-3 md:mb-5 text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold leading-tight"
             >
-              <span className="text-white" style={{ textShadow: '0 2px 20px rgba(0,0,0,0.8), 0 1px 10px rgba(0,0,0,0.6)' }}>
+              <span className="text-white">
                 Bongabong Manpower Development Center
               </span>
             </motion.h2>
@@ -417,7 +442,7 @@ export default function LandingPage() {
               variants={fadeInUp}
               className="mb-5 md:mb-8 text-sm sm:text-base md:text-lg lg:text-xl leading-relaxed"
             >
-              <span className="text-white/95" style={{ textShadow: '0 2px 15px rgba(0,0,0,0.8), 0 1px 8px rgba(0,0,0,0.6)' }}>
+              <span className="text-white/95">
                 Your gateway to skilled training and career development in Bongabong. Established 2023.
               </span>
             </motion.p>
@@ -436,25 +461,6 @@ export default function LandingPage() {
             </motion.div>
           </motion.div>
         </div>
-
-        {/* Animated scroll indicator */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.5 }}
-          className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2"
-        >
-          <a href="#programs" aria-label="Scroll to programs">
-            <motion.div
-              animate={{ y: [0, 12, 0] }}
-              transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-              className="flex flex-col items-center gap-2 rounded-full border border-white/40 bg-black/50 px-3 py-2 md:px-4 md:py-3 backdrop-blur-2xl transition-all hover:border-white/60 hover:bg-black/60 hover:shadow-xl"
-            >
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-white" style={{ textShadow: '0 1px 5px rgba(0,0,0,0.5)' }}>Explore</span>
-              <ChevronDown className="size-4 md:size-5 text-white" style={{ filter: 'drop-shadow(0 1px 5px rgba(0,0,0,0.5))' }} />
-            </motion.div>
-          </a>
-        </motion.div>
       </section>
 
       {/* ─── PROGRAMS SECTION ─── */}
@@ -509,7 +515,7 @@ export default function LandingPage() {
                 <div className="h-px flex-1 bg-gradient-to-r from-amber-500/30 to-transparent" />
               </div>
 
-              <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {upcomingPrograms.map((program, i) => {
                   const IconComponent = getIconComponent(program.icon);
                   const days = daysUntilStart(program.startDate);
@@ -541,19 +547,30 @@ export default function LandingPage() {
                           </motion.div>
                         </div>
 
-                        {program.photoUrl && (
+                        {hasProgramImage(program) && (
                           <div className="relative h-40 md:h-48 w-full overflow-hidden">
                             <img
                               src={program.photoUrl}
                               alt={program.name}
                               className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                              onError={() => markProgramImageBroken(program.id)}
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                           </div>
                         )}
+                        
+                        {!hasProgramImage(program) && (
+                          <div className="relative flex h-40 md:h-48 items-center justify-center overflow-hidden bg-gradient-to-br from-amber-500/20 to-orange-500/10">
+                            <div className="relative z-10 flex items-center justify-center">
+                              <div className="flex size-24 md:size-32 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-2xl shadow-amber-500/40">
+                                <IconComponent className="size-12 md:size-16 text-white" />
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         <CardHeader className="pb-3">
-                          {!program.photoUrl && (
+                          {!hasProgramImage(program) && (
                             <motion.div
                               whileHover={{ rotate: 360 }}
                               transition={{ duration: 0.6 }}
@@ -612,7 +629,7 @@ export default function LandingPage() {
                     className="flex items-center gap-2 md:gap-3 rounded-full border border-green-500/40 bg-gradient-to-r from-green-500/25 to-emerald-500/25 px-4 py-2 md:px-6 md:py-3 backdrop-blur-2xl shadow-xl shadow-green-500/20"
                   >
                     <div className="size-2 md:size-2.5 rounded-full bg-green-500 animate-pulse shadow-lg shadow-green-500/60" />
-                    <span className="text-xs md:text-sm font-extrabold text-green-600 dark:text-green-400">Currently Running</span>
+                    <span className="text-xs md:text-sm font-extrabold text-green-600 dark:text-green-400">Active Programs</span>
                   </motion.div>
                   <div className="h-px flex-1 bg-gradient-to-r from-green-500/30 to-transparent" />
                 </div>
@@ -623,7 +640,7 @@ export default function LandingPage() {
                 whileInView="visible"
                 viewport={{ once: true, margin: '-60px' }}
                 variants={staggerContainer}
-                className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3"
+                className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
               >
                 {runningPrograms.map((program, i) => {
                   const IconComponent = getIconComponent(program.icon);
@@ -642,12 +659,13 @@ export default function LandingPage() {
                         {/* Animated gradient overlay */}
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-secondary/0 to-primary/0 opacity-0 transition-opacity group-hover:opacity-15" />
                         
-                        {program.photoUrl ? (
+                        {hasProgramImage(program) ? (
                           <div className="relative h-48 md:h-56 w-full overflow-hidden">
                             <img
                               src={program.photoUrl}
                               alt={program.name}
                               className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 group-hover:rotate-1"
+                              onError={() => markProgramImageBroken(program.id)}
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
                             {/* Active badge with glow */}
@@ -664,19 +682,17 @@ export default function LandingPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="flex h-32 md:h-36 items-center justify-center bg-gradient-to-br from-primary/15 via-secondary/10 to-primary/15">
-                            <motion.div
-                              whileHover={{ rotate: 360, scale: 1.1 }}
-                              transition={{ duration: 0.6 }}
-                              className="flex size-20 md:size-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary to-secondary shadow-2xl shadow-primary/40"
-                            >
-                              <IconComponent className="size-10 md:size-12 text-white" />
-                            </motion.div>
+                          <div className="relative flex h-48 md:h-56 items-center justify-center overflow-hidden bg-gradient-to-br from-primary/20 to-primary/10 dark:from-primary/30 dark:to-primary/10">
+                            <div className="relative z-10 flex items-center justify-center">
+                              <div className="flex size-32 md:size-40 items-center justify-center rounded-3xl bg-gradient-to-br from-primary to-primary/80 shadow-2xl shadow-primary/40">
+                                <IconComponent className="size-16 md:size-20 text-white" />
+                              </div>
+                            </div>
                           </div>
                         )}
 
                         <CardHeader className="pb-3">
-                          {program.photoUrl && (
+                          {!hasProgramImage(program) && (
                             <motion.div
                               whileHover={{ rotate: 360 }}
                               transition={{ duration: 0.6 }}
@@ -852,7 +868,7 @@ export default function LandingPage() {
               <div className="pointer-events-none absolute -top-20 -right-20 size-48 md:size-64 rounded-full bg-white/10 blur-2xl" />
               <div className="pointer-events-none absolute -bottom-20 -left-20 size-48 md:size-64 rounded-full bg-white/10 blur-2xl" />
 
-              <div className="relative z-10 mx-auto max-w-3xl text-center text-white">
+              <div className="relative z-10 mx-auto max-w-3xl text-center">
                 <motion.div
                   initial={{ scale: 0 }}
                   whileInView={{ scale: 1 }}
@@ -860,8 +876,8 @@ export default function LandingPage() {
                   transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
                 >
                   <div className="mb-4 md:mb-6 inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/25 px-4 py-2 md:px-6 md:py-2.5 backdrop-blur-2xl shadow-xl">
-                    <Sparkles className="size-4 md:size-5" />
-                    <span className="text-xs md:text-sm font-bold tracking-wide">Start Your Journey</span>
+                    <Sparkles className="size-4 md:size-5" style={{ color: getContrastTextColor('rgba(255,255,255,0.25)') === 'white' ? '#ffffff' : '#000000' }} />
+                    <span className="text-xs md:text-sm font-bold tracking-wide" style={{ color: getContrastTextColor('rgba(255,255,255,0.25)') === 'white' ? '#ffffff' : '#000000' }}>Start Your Journey</span>
                   </div>
                 </motion.div>
 
@@ -870,7 +886,8 @@ export default function LandingPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.3 }}
-                  className="mb-4 md:mb-6 text-3xl md:text-5xl lg:text-6xl font-extrabold text-white"
+                  className="mb-4 md:mb-6 text-3xl md:text-5xl lg:text-6xl font-extrabold"
+                  style={{ color: getContrastTextColor('rgba(255,255,255,0.25)') === 'white' ? '#ffffff' : '#000000' }}
                 >
                   Ready to Transform Your Future?
                 </motion.h2>
@@ -880,7 +897,8 @@ export default function LandingPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.4 }}
-                  className="mb-8 md:mb-10 text-base md:text-lg lg:text-xl text-white/95 px-4"
+                  className="mb-8 md:mb-10 text-base md:text-lg lg:text-xl px-4"
+                  style={{ color: getContrastTextColor('rgba(255,255,255,0.25)') === 'white' ? '#ffffff' : '#000000' }}
                 >
                   Join our training programs and gain the skills that employers are looking for today.
                 </motion.p>
@@ -909,10 +927,9 @@ export default function LandingPage() {
                   <Button
                     size="lg"
                     onClick={() => setIsRegistrationModalOpen(true)}
-                    className="gap-2 border-2 border-white/50 bg-white/25 px-6 py-5 md:px-8 md:py-6 text-base md:text-lg font-bold text-white backdrop-blur-2xl transition-all hover:scale-105 hover:border-white/70 hover:bg-white/35 hover:shadow-xl w-full sm:w-auto"
+                    className="px-6 py-5 md:px-8 md:py-6 text-base md:text-lg font-bold transition-all hover:scale-105 hover:shadow-xl w-full sm:w-auto"
                   >
                     Enroll Now
-                    <Star className="size-5" />
                   </Button>
                 </motion.div>
               </div>
@@ -985,12 +1002,13 @@ export default function LandingPage() {
                     label: 'Facebook',
                     content: (
                       <a
-                        href={getValue(cmsSettings?.contact?.facebook)}
+                        href={'https://www.facebook.com/profile.php?id=61552170609709'}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs md:text-sm text-primary hover:underline font-semibold"
                       >
-                        Visit our Facebook Page
+                        Visit our Facebook Page 
+                        
                       </a>
                     ),
                   },
@@ -1020,10 +1038,10 @@ export default function LandingPage() {
                 <img
                   src={getFileUrl(cmsSettings.appearance.logo)}
                   alt="BMDC Logo"
-                  className="size-10 md:size-12 rounded-xl object-contain shadow-md ring-2 ring-primary/10"
+                  className="size-10 md:size-12 rounded-xl object-contain shadow-md"
                 />
               ) : (
-                <div className="flex size-10 md:size-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary shadow-md ring-2 ring-primary/20">
+                <div className="flex size-10 md:size-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary shadow-md">
                   <span className="text-xs font-bold text-white">BMDC</span>
                 </div>
               )}
@@ -1041,6 +1059,15 @@ export default function LandingPage() {
               <a href="#about" className="hover:text-primary transition-all hover:scale-105">About</a>
               <a href="#contact" className="hover:text-primary transition-all hover:scale-105">Contact</a>
               <button onClick={() => setIsRegistrationModalOpen(true)} className="hover:text-primary transition-all hover:scale-105">Enroll</button>
+              <a 
+                href={getValue(cmsSettings?.contact?.facebook) || 'https://www.facebook.com/profile.php?id=61552170609709'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-primary transition-all hover:scale-105 flex items-center gap-1"
+              >
+                <Facebook className="size-4" />
+                Follow
+              </a>
             </div>
             <p className="text-xs md:text-sm text-muted-foreground">
               © {new Date().getFullYear()} {getValue(cmsSettings?.footer?.companyName) || 'Bongabong Manpower Development Center'}. All rights reserved.

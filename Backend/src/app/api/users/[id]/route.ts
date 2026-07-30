@@ -23,11 +23,12 @@ const updateUserSchema = z.object({
  * GET /api/users/[id]
  * Get a single user by ID (admin only)
  */
-export const GET = withErrorHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const GET = withErrorHandler(async (request: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) => {
   const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
   if ('error' in authResult) return authResult.error;
 
-  const { id } = params;
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
 
   const { data: user, error } = await supabaseAdmin
     .from('users')
@@ -44,11 +45,11 @@ export const GET = withErrorHandler(async (request: NextRequest, { params }: { p
  * PUT /api/users/[id]
  * Update a user (admin only)
  */
-export const PUT = withErrorHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const PUT = withErrorHandler(async (request: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) => {
   const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
   if ('error' in authResult) return authResult.error;
-
-  const { id } = params;
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
   const body = await request.json();
   const validatedData = updateUserSchema.parse(body);
 
@@ -95,11 +96,12 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: { p
  * DELETE /api/users/[id]
  * Delete a user (admin only)
  */
-export const DELETE = withErrorHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const DELETE = withErrorHandler(async (request: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) => {
   const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
   if ('error' in authResult) return authResult.error;
 
-  const { id } = params;
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
 
   const { data: existingUser } = await supabaseAdmin
     .from('users')

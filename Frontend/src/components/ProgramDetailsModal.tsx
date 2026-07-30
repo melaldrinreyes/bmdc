@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Skeleton } from './ui/skeleton';
 import { GraduationCap, Calendar, Clock, Award, User, BarChart3, CalendarDays, ExternalLink, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Program } from '../pages/ProgramsPage';
+import type { Program } from '../utils/programHelpers';
 import sessionService, { ProgramSession } from '../services/sessionService';
 import attendanceService, { AttendanceStats } from '../services/attendanceService';
 
@@ -24,6 +24,7 @@ export default function ProgramDetailsModal({ program, open, onOpenChange, onEdi
   const [sessions, setSessions] = useState<ProgramSession[]>([]);
   const [stats, setStats] = useState<AttendanceStats | null>(null);
   const [dataLoading, setDataLoading] = useState(false);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   // Delete state
   const [sessionToDelete, setSessionToDelete] = useState<ProgramSession | null>(null);
@@ -63,6 +64,13 @@ export default function ProgramDetailsModal({ program, open, onOpenChange, onEdi
 
   useEffect(() => {
     if (open && program) {
+      if (!canManage) {
+        setSessions([]);
+        setStats(null);
+        setDataLoading(false);
+        return;
+      }
+
       setDataLoading(true);
       Promise.all([
         sessionService.getSessionsByProgram(program.id),
@@ -76,13 +84,17 @@ export default function ProgramDetailsModal({ program, open, onOpenChange, onEdi
           );
           setStats(statsRes.data ?? null);
         })
-        .catch(() => {})
+        .catch(() => {
+          setSessions([]);
+          setStats(null);
+        })
         .finally(() => setDataLoading(false));
     } else if (!open) {
       setSessions([]);
       setStats(null);
+      setImageLoadFailed(false);
     }
-  }, [open, program]);
+  }, [open, program, canManage]);
 
   if (!program) return null;
 
@@ -101,27 +113,31 @@ export default function ProgramDetailsModal({ program, open, onOpenChange, onEdi
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Program Details</DialogTitle>
+          <DialogDescription>
+            Review the program overview, schedule, and details.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Program Image */}
-          {program.photoUrl && (
+          {program.photoUrl && !imageLoadFailed ? (
             <div className="flex justify-center">
               <img
                 src={program.photoUrl}
                 alt={program.name}
                 className="h-48 w-auto rounded-md object-cover shadow"
+                onError={() => setImageLoadFailed(true)}
               />
             </div>
-          )}
+          ) : null}
 
           {/* Header Info */}
           <div className="flex items-start gap-4">
-            {!program.photoUrl && (
+            {!program.photoUrl || imageLoadFailed ? (
               <div className="flex size-16 items-center justify-center rounded-lg bg-primary/10 shrink-0">
                 <GraduationCap className="size-8 text-primary" />
               </div>
-            )}
+            ) : null}
             <div className="flex-1 min-w-0">
               <h3 className="mb-2">{program.name}</h3>
               <div className="flex flex-wrap gap-2">
@@ -208,18 +224,19 @@ export default function ProgramDetailsModal({ program, open, onOpenChange, onEdi
             </div>
           </div>
 
-        <Tabs defaultValue="sessions" className="w-full">
-          <TabsList className="w-full grid grid-cols-2 mb-4">
-            <TabsTrigger value="sessions" className="text-xs gap-1.5">
-              <CalendarDays className="size-3.5" />Sessions {!dataLoading && sessions.length > 0 && `(${sessions.length})`}
-            </TabsTrigger>
-            <TabsTrigger value="attendance" className="text-xs gap-1.5">
-              <BarChart3 className="size-3.5" />Attendance
-            </TabsTrigger>
-          </TabsList>
+        {canManage && (
+          <Tabs defaultValue="sessions" className="w-full">
+            <TabsList className="w-full grid grid-cols-2 mb-4">
+              <TabsTrigger value="sessions" className="text-xs gap-1.5">
+                <CalendarDays className="size-3.5" />Sessions {!dataLoading && sessions.length > 0 && `(${sessions.length})`}
+              </TabsTrigger>
+              <TabsTrigger value="attendance" className="text-xs gap-1.5">
+                <BarChart3 className="size-3.5" />Attendance
+              </TabsTrigger>
+            </TabsList>
 
-          {/* ── Sessions Tab ── */}
-          <TabsContent value="sessions">
+            {/* ── Sessions Tab ── */}
+            <TabsContent value="sessions">
             {dataLoading ? (
               <div className="space-y-2">
                 {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
@@ -302,10 +319,10 @@ export default function ProgramDetailsModal({ program, open, onOpenChange, onEdi
                 )}
               </div>
             )}
-          </TabsContent>
+            </TabsContent>
 
-          {/* ── Attendance Tab ── */}
-          <TabsContent value="attendance">
+            {/* ── Attendance Tab ── */}
+            <TabsContent value="attendance">
             {dataLoading ? (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -343,8 +360,9 @@ export default function ProgramDetailsModal({ program, open, onOpenChange, onEdi
                 </p>
               </div>
             )}
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
+        )}
 
         {/* ── Delete single session confirmation ── */}
         <Dialog open={!!sessionToDelete} onOpenChange={v => { if (!v) setSessionToDelete(null); }}>
@@ -384,17 +402,19 @@ export default function ProgramDetailsModal({ program, open, onOpenChange, onEdi
 
         {/* Action Buttons */}
         <div className="flex gap-2 border-t pt-4">
-          <Button 
-            variant="outline" 
-            className="flex-1"
-            onClick={() => { 
-              onOpenChange(false); 
-              navigate(`/programs/${program.id}/attendance`); 
-            }}
-          >
-            <ExternalLink className="mr-2 size-4" />
-            View Attendance
-          </Button>
+          {canManage && (
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={() => { 
+                onOpenChange(false); 
+                navigate(`/programs/${program.id}/attendance`); 
+              }}
+            >
+              <ExternalLink className="mr-2 size-4" />
+              View Attendance
+            </Button>
+          )}
           {canManage && onEdit && (
             <Button 
               variant="default" 

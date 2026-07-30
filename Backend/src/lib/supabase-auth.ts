@@ -7,7 +7,7 @@ export interface SupabaseIdentity {
   email: string | null;
 }
 
-type AppUserAuthInfo = Pick<User, 'id' | 'email' | 'role'>;
+type AppUserAuthInfo = Pick<User, 'id' | 'email' | 'role'> & { tenantId?: string };
 
 export const verifySupabaseAccessToken = async (
   token: string
@@ -39,42 +39,65 @@ export const resolveAppUserFromSupabaseIdentity = async (
     return null;
   }
 
+  let appUser: AppUserAuthInfo | null = null;
+
   if (mappedUser) {
-    return mappedUser as AppUserAuthInfo;
+    appUser = mappedUser as AppUserAuthInfo;
+  } else {
+    // Transitional fallback: map by email and persist auth_user_id.
+    if (!identity.email) {
+      return null;
+    }
+
+    const { data: emailUser, error: emailUserError } = await supabaseAdmin
+      .from('users')
+      .select('id, email, role')
+      .eq('email', identity.email.toLowerCase())
+      .maybeSingle();
+
+    if (emailUserError) {
+      logger.error('[SUPABASE_AUTH] Failed email fallback lookup', emailUserError);
+      return null;
+    }
+
+    if (!emailUser) {
+      return null;
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from('users')
+      .update({ auth_user_id: identity.authUserId })
+      .eq('id', emailUser.id);
+
+    if (updateError) {
+      logger.warn('[SUPABASE_AUTH] Could not persist auth_user_id mapping', {
+        userId: emailUser.id,
+        authUserId: identity.authUserId,
+        error: updateError,
+      });
+    }
+
+    appUser = emailUser as AppUserAuthInfo;
   }
 
-  // Transitional fallback: map by email and persist auth_user_id.
-  if (!identity.email) {
-    return null;
+  if (!appUser) return null;
+
+  // Resolve tenant ID for the user
+  if (appUser.role === 'super_admin') {
+    appUser.tenantId = 'platform';
+  } else {
+    const { data: tenantMappings, error: tenantError } = await supabaseAdmin
+      .from('users_tenants')
+      .select('tenant_id, is_primary')
+      .eq('user_id', appUser.id);
+
+    if (tenantError) {
+      logger.error('[SUPABASE_AUTH] Failed to fetch tenant mappings', tenantError);
+    } else if (tenantMappings && tenantMappings.length > 0) {
+      const primary = tenantMappings.find((t: any) => t.is_primary);
+      appUser.tenantId = primary ? primary.tenant_id : tenantMappings[0].tenant_id;
+    }
   }
 
-  const { data: emailUser, error: emailUserError } = await supabaseAdmin
-    .from('users')
-    .select('id, email, role')
-    .eq('email', identity.email.toLowerCase())
-    .maybeSingle();
-
-  if (emailUserError) {
-    logger.error('[SUPABASE_AUTH] Failed email fallback lookup', emailUserError);
-    return null;
-  }
-
-  if (!emailUser) {
-    return null;
-  }
-
-  const { error: updateError } = await supabaseAdmin
-    .from('users')
-    .update({ auth_user_id: identity.authUserId })
-    .eq('id', emailUser.id);
-
-  if (updateError) {
-    logger.warn('[SUPABASE_AUTH] Could not persist auth_user_id mapping', {
-      userId: emailUser.id,
-      authUserId: identity.authUserId,
-      error: updateError,
-    });
-  }
-
-  return emailUser as AppUserAuthInfo;
+  return appUser;
 };
