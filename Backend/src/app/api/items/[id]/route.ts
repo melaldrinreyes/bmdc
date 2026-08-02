@@ -32,7 +32,8 @@ export const GET = withErrorHandler(
     }
 
     const { id } = await params;
-    const item = await itemService.getItemById(id, isSuperAdmin ? undefined : tenantId);
+    const context = isSuperAdmin ? null : { tenantId, isSuperAdmin, userId: '', role };
+    const item = await itemService.getItemById(context, id);
 
     if (!item) {
       return notFoundResponse('Item not found');
@@ -57,7 +58,8 @@ export const PUT = withErrorHandler(
     const { id } = await params;
 
     // Verify the item belongs to this tenant before updating (Req 8.8)
-    const existing = await itemService.getItemById(id, isSuperAdmin ? undefined : tenantId);
+    const context = isSuperAdmin ? null : { tenantId, isSuperAdmin, userId, role };
+    const existing = await itemService.getItemById(context, id);
     if (!existing) {
       return notFoundResponse('Item not found');
     }
@@ -88,7 +90,8 @@ export const DELETE = withErrorHandler(
     const { id } = await params;
 
     // Verify the item belongs to this tenant before deleting (Req 8.8)
-    const existing = await itemService.getItemById(id, isSuperAdmin ? undefined : tenantId);
+    const context = isSuperAdmin ? null : { tenantId, isSuperAdmin, userId, role };
+    const existing = await itemService.getItemById(context, id);
     if (!existing) {
       return notFoundResponse('Item not found');
     }

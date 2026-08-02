@@ -28,6 +28,7 @@ import { api } from '../services';
 import inventoryService from '../services/inventoryService';
 import { getFileUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import logger from '../utils/logger';
 
 export default function ItemFormPage() {
   const { id } = useParams();
