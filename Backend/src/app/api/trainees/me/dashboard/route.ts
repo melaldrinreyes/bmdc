@@ -4,7 +4,6 @@ import { successResponse, notFoundResponse } from '@/utils/responses';
 import { withErrorHandler } from '@/middleware/errorHandler';
 import { handleOptionsRequest } from '@/middleware/cors';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { createClient } from '@/lib/supabase';
 import { nonAttendanceDateService } from '@/services/nonAttendanceDateService';
 
 // OPTIONS /api/trainees/me/dashboard - Handle CORS preflight
@@ -24,10 +23,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const userId = authResult.user.userId;
   
   try {
-    const supabase = createClient();
-
     // Get trainee_id from trainee_accounts table with trainee details
-    const { data: traineeAccount, error: accountError } = await supabase
+    const { data: traineeAccount, error: accountError } = await supabaseAdmin
       .from('trainee_accounts')
       .select('trainee_id, trainees(*)')
       .eq('user_id', userId)
@@ -57,7 +54,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
         : Promise.resolve({ data: null, error: null }),
 
       // Get all attendance records with session dates for stats calculation
-      supabase
+      supabaseAdmin
         .from('attendance')
         .select('id, status, check_in_time, check_out_time, program_sessions(id, session_date, start_time, end_time, programs(name))')
         .eq('trainee_id', traineeId)
@@ -65,7 +62,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
       // Get upcoming sessions if enrolled
       traineeData.program_id
-        ? supabase
+        ? supabaseAdmin
             .from('program_sessions')
             .select('id, program_id, title, session_date, start_time, end_time, description, location, session_type')
             .eq('program_id', traineeData.program_id)
