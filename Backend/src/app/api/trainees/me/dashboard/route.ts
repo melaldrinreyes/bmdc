@@ -22,107 +22,122 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   if ('error' in authResult) return authResult.error;
 
   const userId = authResult.user.userId;
-  const supabase = createClient();
+  
+  try {
+    const supabase = createClient();
 
-  // Get trainee_id from trainee_accounts table with trainee details
-  const { data: traineeAccount, error: accountError } = await supabase
-    .from('trainee_accounts')
-    .select('trainee_id, trainees(*)')
-    .eq('user_id', userId)
-    .single();
+    // Get trainee_id from trainee_accounts table with trainee details
+    const { data: traineeAccount, error: accountError } = await supabase
+      .from('trainee_accounts')
+      .select('trainee_id, trainees(*)')
+      .eq('user_id', userId)
+      .single();
 
-  if (accountError || !traineeAccount) {
-    return notFoundResponse('Trainee profile not found for this user');
+    if (accountError) {
+      console.error('[Dashboard] Error fetching trainee account:', accountError);
+      return notFoundResponse('Failed to fetch trainee account');
+    }
+
+    if (!traineeAccount) {
+      return notFoundResponse('Trainee profile not found for this user');
+    }
+
+    const traineeId = traineeAccount.trainee_id;
+    const traineeData = traineeAccount.trainees as any;
+
+    if (!traineeData) {
+      return notFoundResponse('Trainee data not found');
+    }
+
+    // Execute all queries in parallel
+    const [programResult, attendanceResult, sessionsResult, excludedDatesResult] = await Promise.all([
+      // Get program details if enrolled
+      traineeData.program_id
+        ? supabaseAdmin.from('programs').select('*').eq('id', traineeData.program_id).single()
+        : Promise.resolve({ data: null, error: null }),
+
+      // Get all attendance records with session dates for stats calculation
+      supabase
+        .from('attendance')
+        .select('id, status, check_in_time, check_out_time, program_sessions(id, session_date, start_time, end_time, programs(name))')
+        .eq('trainee_id', traineeId)
+        .order('check_in_time', { ascending: false }),
+
+      // Get upcoming sessions if enrolled
+      traineeData.program_id
+        ? supabase
+            .from('program_sessions')
+            .select('id, program_id, title, session_date, start_time, end_time, description, location, session_type')
+            .eq('program_id', traineeData.program_id)
+            .gte('session_date', new Date().toISOString().split('T')[0])
+            .order('session_date', { ascending: true })
+            .order('start_time', { ascending: true })
+            .limit(10)
+        : Promise.resolve({ data: [], error: null }),
+
+      // Get excluded dates for this program
+      traineeData.program_id
+        ? nonAttendanceDateService.getAllNonAttendanceDates({
+            program_id: traineeData.program_id,
+            start_date: new Date().toISOString().split('T')[0],
+          })
+        : Promise.resolve([]),
+    ]);
+
+    // Get excluded dates set
+    const excludedDates = excludedDatesResult || [];
+    const excludedDateSet = new Set(excludedDates.map((d: any) => d.date));
+
+    // Filter attendance records to exclude non-attendance dates
+    const attendanceRecords = attendanceResult.data || [];
+    const validAttendanceRecords = attendanceRecords.filter((record: any) => {
+      const sessionDate = record.program_sessions?.session_date;
+      return sessionDate && !excludedDateSet.has(sessionDate);
+    });
+
+    // Calculate attendance stats (excluding non-attendance dates)
+    const totalSessions = validAttendanceRecords.length;
+    const presentCount = validAttendanceRecords.filter((a: any) => a.status === 'present').length;
+    const lateCount = validAttendanceRecords.filter((a: any) => a.status === 'late').length;
+    const absentCount = validAttendanceRecords.filter((a: any) => a.status === 'absent').length;
+    const attendanceRate = totalSessions > 0 ? ((presentCount + lateCount) / totalSessions) * 100 : 0;
+
+    const attendanceStats = {
+      total_sessions: totalSessions,
+      present_count: presentCount,
+      late_count: lateCount,
+      absent_count: absentCount,
+      attendance_rate: Math.round(attendanceRate * 10) / 10,
+    };
+
+    // Get recent attendance (top 5 from valid records)
+    const recentAttendance = validAttendanceRecords.slice(0, 5);
+
+    // Filter upcoming sessions to mark excluded dates
+    const upcomingSessions = (sessionsResult.data || []).map((session: any) => ({
+      ...session,
+      is_excluded_date: excludedDateSet.has(session.session_date),
+    }));
+
+    // Get next 5 excluded dates
+    const upcomingExcludedDates = excludedDates.slice(0, 5);
+
+    // Build profile with program
+    const profile = {
+      ...traineeData,
+      program: programResult.data || undefined,
+    };
+
+    // Return all data in one response
+    return successResponse({
+      profile,
+      attendanceStats,
+      recentAttendance,
+      upcomingSessions,
+      excludedDates: upcomingExcludedDates,
+    });
+  } catch (error: any) {
+    console.error('[Dashboard] Unexpected error:', error);
+    throw error; // Let withErrorHandler catch it
   }
-
-  const traineeId = traineeAccount.trainee_id;
-  const traineeData = traineeAccount.trainees as any;
-
-  // Execute all queries in parallel
-  const [programResult, attendanceResult, sessionsResult, excludedDatesResult] = await Promise.all([
-    // Get program details if enrolled
-    traineeData.program_id
-      ? supabaseAdmin.from('programs').select('*').eq('id', traineeData.program_id).single()
-      : Promise.resolve({ data: null, error: null }),
-
-    // Get all attendance records with session dates for stats calculation
-    supabase
-      .from('attendance')
-      .select('id, status, check_in_time, check_out_time, program_sessions(id, session_date, start_time, end_time, programs(name))')
-      .eq('trainee_id', traineeId)
-      .order('check_in_time', { ascending: false }),
-
-    // Get upcoming sessions if enrolled
-    traineeData.program_id
-      ? supabase
-          .from('program_sessions')
-          .select('id, program_id, title, session_date, start_time, end_time, description, location, session_type')
-          .eq('program_id', traineeData.program_id)
-          .gte('session_date', new Date().toISOString().split('T')[0])
-          .order('session_date', { ascending: true })
-          .order('start_time', { ascending: true })
-          .limit(10)
-      : Promise.resolve({ data: [], error: null }),
-
-    // Get excluded dates for this program
-    traineeData.program_id
-      ? nonAttendanceDateService.getAllNonAttendanceDates({
-          program_id: traineeData.program_id,
-          start_date: new Date().toISOString().split('T')[0],
-        })
-      : Promise.resolve([]),
-  ]);
-
-  // Get excluded dates set
-  const excludedDates = excludedDatesResult || [];
-  const excludedDateSet = new Set(excludedDates.map(d => d.date));
-
-  // Filter attendance records to exclude non-attendance dates
-  const attendanceRecords = attendanceResult.data || [];
-  const validAttendanceRecords = attendanceRecords.filter((record: any) => {
-    const sessionDate = record.program_sessions?.session_date;
-    return sessionDate && !excludedDateSet.has(sessionDate);
-  });
-
-  // Calculate attendance stats (excluding non-attendance dates)
-  const totalSessions = validAttendanceRecords.length;
-  const presentCount = validAttendanceRecords.filter((a: any) => a.status === 'present').length;
-  const lateCount = validAttendanceRecords.filter((a: any) => a.status === 'late').length;
-  const absentCount = validAttendanceRecords.filter((a: any) => a.status === 'absent').length;
-  const attendanceRate = totalSessions > 0 ? ((presentCount + lateCount) / totalSessions) * 100 : 0;
-
-  const attendanceStats = {
-    total_sessions: totalSessions,
-    present_count: presentCount,
-    late_count: lateCount,
-    absent_count: absentCount,
-    attendance_rate: Math.round(attendanceRate * 10) / 10,
-  };
-
-  // Get recent attendance (top 5 from valid records)
-  const recentAttendance = validAttendanceRecords.slice(0, 5);
-
-  // Filter upcoming sessions to mark excluded dates
-  const upcomingSessions = (sessionsResult.data || []).map((session: any) => ({
-    ...session,
-    is_excluded_date: excludedDateSet.has(session.session_date),
-  }));
-
-  // Get next 5 excluded dates
-  const upcomingExcludedDates = excludedDates.slice(0, 5);
-
-  // Build profile with program
-  const profile = {
-    ...traineeData,
-    program: programResult.data || undefined,
-  };
-
-  // Return all data in one response
-  return successResponse({
-    profile,
-    attendanceStats,
-    recentAttendance,
-    upcomingSessions,
-    excludedDates: upcomingExcludedDates,
-  });
 });
