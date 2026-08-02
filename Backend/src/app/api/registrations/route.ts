@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { registrationService } from '@/services/registrationService';
 import { requireRoleAsync } from '@/middleware/auth';
 import { traineeRegistrationSchema } from '@/utils/validators';
@@ -31,17 +31,36 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
 // POST /api/registrations - Submit a new registration (PUBLIC - no auth required)
 export const POST = withErrorHandler(async (request: NextRequest) => {
-  const body = await request.json();
-  const validatedData = traineeRegistrationSchema.parse(body);
+  try {
+    const body = await request.json();
+    const validatedData = traineeRegistrationSchema.parse(body);
 
-  const registration = await registrationService.submitRegistration(validatedData);
+    const registration = await registrationService.submitRegistration(validatedData);
 
-  // Omit password_hash from response
-  const { ...safeReg } = registration as any;
-  delete safeReg.password_hash;
+    // Omit password_hash from response
+    const { ...safeReg } = registration as any;
+    delete safeReg.password_hash;
 
-  return createdResponse(
-    safeReg,
-    'Registration submitted successfully. Please wait for admin approval before logging in.'
-  );
+    return createdResponse(
+      safeReg,
+      'Registration submitted successfully. Please wait for admin approval before logging in.'
+    );
+  } catch (error: any) {
+    // Handle validation errors from Zod
+    if (error.name === 'ZodError') {
+      console.error('[Registration] Validation error:', error.errors);
+      return Response.json(
+        {
+          error: 'Validation failed',
+          details: error.errors.map((e: any) => ({
+            field: e.path.join('.'),
+            message: e.message,
+          })),
+        },
+        { status: 422 }
+      );
+    }
+    // Re-throw other errors for withErrorHandler to catch
+    throw error;
+  }
 });
