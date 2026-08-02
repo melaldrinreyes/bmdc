@@ -5,7 +5,7 @@ import { successResponse, notFoundResponse, errorResponse } from '@/utils/respon
 import { withErrorHandler } from '@/middleware/errorHandler';
 import { activityLogService } from '@/services/activityLogService';
 import { handleOptionsRequest } from '@/middleware/cors';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { requireFeature, FeatureKey } from '@/lib/featureFlags';
 import { z } from 'zod';
 
@@ -38,7 +38,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const userId = authResult.user.userId;
 
   // Resolve tenant from trainee account to check feature flag
-  const { data: traineeAccount, error: accountError } = await supabase
+  const { data: traineeAccount, error: accountError } = await supabaseAdmin
     .from('trainee_accounts')
     .select(`
       trainee_id,
@@ -86,7 +86,7 @@ export const PUT = withErrorHandler(async (request: NextRequest) => {
   const userId = authResult.user.userId;
 
   // Get trainee_id from trainee_accounts table
-  const { data: traineeAccount, error: accountError } = await supabase
+  const { data: traineeAccount, error: accountError } = await supabaseAdmin
     .from('trainee_accounts')
     .select('trainee_id')
     .eq('user_id', userId)
@@ -112,7 +112,7 @@ export const PUT = withErrorHandler(async (request: NextRequest) => {
   }
 
   // Update trainee profile
-  const { data: updatedTrainee, error: updateError } = await supabase
+  const { data: updatedTrainee, error: updateError } = await supabaseAdmin
     .from('trainees')
     .update(filteredData)
     .eq('id', traineeId)
