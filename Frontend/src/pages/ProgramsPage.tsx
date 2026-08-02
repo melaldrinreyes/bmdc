@@ -355,55 +355,14 @@ export default function ProgramsPage() {
             />
           </div>
         )}
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setTablePage(prev => Math.max(1, prev - 1))}
-                    className={tablePage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                    size={undefined}
-                  />
-                </PaginationItem>
 
-                {Array.from({ length: tableTotalPages }, (_, i) => i + 1).map((page) => {
-                  if (
-                    page === 1 ||
-                    page === tableTotalPages ||
-                    (page >= tablePage - 1 && page <= tablePage + 1)
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setTablePage(page)}
-                          isActive={tablePage === page}
-                          className="cursor-pointer"
-                          size={undefined}
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  }
-
-                  if (page === tablePage - 2 || page === tablePage + 2) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    );
-                  }
-
-                  return null;
-                })}
-
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() => setTablePage(prev => Math.min(tableTotalPages, prev + 1))}
-                    className={tablePage === tableTotalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                    size={undefined}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+        {!loading && viewMode === 'table' && tableTotalPages > 1 && (
+          <div className="hidden sm:mt-6 sm:flex sm:justify-center">
+            <PaginationWrapper
+              currentPage={tablePage}
+              totalPages={tableTotalPages}
+              onPageChange={setTablePage}
+            />
           </div>
         )}
 
