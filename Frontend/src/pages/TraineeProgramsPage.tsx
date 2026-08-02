@@ -252,7 +252,7 @@ export default function TraineeProgramsPage() {
 
       {/* Application Confirmation Dialog */}
       <Dialog open={applyDialogOpen} onOpenChange={setApplyDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-full max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <GraduationCap className="size-5" />
@@ -284,12 +284,12 @@ export default function TraineeProgramsPage() {
             <CheckCircle2 className="size-4 shrink-0 mt-0.5" />
             <span>Your application will be reviewed by staff before enrollment is confirmed.</span>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setApplyDialogOpen(false)} disabled={applying}>
-              Cancel
-            </Button>
-            <Button onClick={handleApply} disabled={applying}>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button onClick={handleApply} disabled={applying} className="w-full">
               {applying ? 'Submitting...' : 'Submit Application'}
+            </Button>
+            <Button variant="outline" onClick={() => setApplyDialogOpen(false)} disabled={applying} className="w-full">
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

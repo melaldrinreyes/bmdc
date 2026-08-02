@@ -21,12 +21,13 @@ export class RegistrationService {
   /**
    * Submit a new trainee registration request (public - no auth)
    */
-  async submitRegistration(data: TraineeRegistrationInput): Promise<PendingRegistration> {
+  async submitRegistration(data: TraineeRegistrationInput, tenantId: string): Promise<PendingRegistration> {
     // Check for duplicate email in pending_registrations
     const { data: existingPending, error: existingPendingError } = await supabaseAdmin
       .from('pending_registrations')
       .select('id, status')
       .eq('email', data.email.toLowerCase())
+      .eq('tenant_id', tenantId)
       .in('status', ['pending', 'approved'])
       .maybeSingle();
 
@@ -70,6 +71,7 @@ export class RegistrationService {
       .select('id')
       .eq('username', data.username)
       .eq('status', 'pending')
+      .eq('tenant_id', tenantId)
       .maybeSingle();
 
     if (existingPendingUsernameError && existingPendingUsernameError.code !== 'PGRST116') {
@@ -90,6 +92,7 @@ export class RegistrationService {
       .from('pending_registrations')
       .insert({
         ...regData,
+        tenant_id: tenantId,
         email: data.email.toLowerCase(),
         password_hash,
         middle_name: data.middle_name || '',

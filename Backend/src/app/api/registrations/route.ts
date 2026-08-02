@@ -6,6 +6,7 @@ import { successResponse, createdResponse } from '@/utils/responses';
 import { withErrorHandler } from '@/middleware/errorHandler';
 import { handleOptionsRequest } from '@/middleware/cors';
 import { requireTenantContext } from '@/middleware/tenantContext';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 // OPTIONS /api/registrations
 export async function OPTIONS(request: NextRequest) {
@@ -60,7 +61,22 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     const validatedData = traineeRegistrationSchema.parse(body);
     console.log('[Registration] Validation passed');
 
-    const registration = await registrationService.submitRegistration(validatedData);
+    // Get tenant_id from the program being applied to
+    const { data: program, error: programError } = await supabaseAdmin
+      .from('programs')
+      .select('tenant_id')
+      .eq('id', validatedData.program_id)
+      .single();
+
+    if (programError || !program) {
+      console.error('[Registration] Program not found:', validatedData.program_id);
+      return Response.json(
+        { error: 'Program not found' },
+        { status: 404 }
+      );
+    }
+
+    const registration = await registrationService.submitRegistration(validatedData, program.tenant_id);
 
     // Omit password_hash from response
     const { ...safeReg } = registration as any;
