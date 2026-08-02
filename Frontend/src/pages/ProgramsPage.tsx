@@ -8,18 +8,10 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '../components/ui/pagination';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import logger from '../utils/logger';
+import PaginationWrapper from '../components/PaginationWrapper';
 import { isProgramExpired, getProgramStatus, type Program } from '../utils/programHelpers';
 import { 
   GraduationCap, 
@@ -355,8 +347,14 @@ export default function ProgramsPage() {
         )}
 
         {!loading && viewMode === 'table' && tableTotalPages > 1 && (
-          <div className="hidden sm:flex justify-center">
-            <Pagination>
+          <div className="hidden sm:mt-6 sm:flex sm:justify-center">
+            <PaginationWrapper
+              currentPage={tablePage}
+              totalPages={tableTotalPages}
+              onPageChange={setTablePage}
+            />
+          </div>
+        )}
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
