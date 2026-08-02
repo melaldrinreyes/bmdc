@@ -4,6 +4,7 @@ import { successResponse, notFoundResponse } from '@/utils/responses';
 import { withErrorHandler } from '@/middleware/errorHandler';
 import { handleOptionsRequest } from '@/middleware/cors';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { createClient } from '@/lib/supabase';
 import { nonAttendanceDateService } from '@/services/nonAttendanceDateService';
 
 // OPTIONS /api/trainees/me/dashboard - Handle CORS preflight
@@ -21,6 +22,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   if ('error' in authResult) return authResult.error;
 
   const userId = authResult.user.userId;
+  const supabase = createClient();
 
   // Get trainee_id from trainee_accounts table with trainee details
   const { data: traineeAccount, error: accountError } = await supabase
