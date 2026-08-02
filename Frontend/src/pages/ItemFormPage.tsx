@@ -188,9 +188,11 @@ export default function ItemFormPage() {
       if (response.success && response.data?.filePath) {
         return response.data.filePath;
       }
+      logger.warn('QR code upload returned empty path', { itemId });
       return '';
-    } catch {
-      return '';
+    } catch (error) {
+      logger.error('Failed to generate or upload QR code', { error, itemId });
+      throw error; // Re-throw to be caught by handleSubmit
     }
   };
 
@@ -228,16 +230,24 @@ export default function ItemFormPage() {
       // Generate QR, upload it, then patch the item with qr_code_path
       const savedId = savedItem?.id ?? id;
       if (savedId) {
-        const qrPath = await generateAndUploadQR(savedId, formData.name, formData.category);
-        if (qrPath) {
-          await inventoryService.updateInventoryItem(String(savedId), { qr_code_path: qrPath } as any);
+        try {
+          const qrPath = await generateAndUploadQR(savedId, formData.name, formData.category);
+          if (qrPath) {
+            await inventoryService.updateInventoryItem(String(savedId), { qr_code_path: qrPath } as any);
+          } else {
+            logger.warn('QR code path was empty after upload', { savedId });
+          }
+        } catch (qrError) {
+          logger.error('QR code generation/upload failed but item was created', { qrError, savedId });
+          toast.warning('Item created but QR code upload failed. You can try again from the edit page.');
         }
       }
 
       toast.success(id ? 'Item updated successfully!' : 'Item added successfully!');
       navigate('/items');
-    } catch (err) {
-      toast.error('Failed to save item');
+    } catch (err: any) {
+      logger.error('Failed to save item', { error: err });
+      toast.error(err?.message || 'Failed to save item');
     } finally {
       setLoading(false);
     }
