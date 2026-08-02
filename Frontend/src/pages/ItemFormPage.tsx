@@ -209,6 +209,12 @@ export default function ItemFormPage() {
     try {
       // Upload image if needed
       const imagePath = await uploadImageIfNeeded();
+      
+      // Format purchase date properly - only include if valid
+      const purchaseDate = formData.purchaseDate 
+        ? new Date(formData.purchaseDate).toISOString().split('T')[0]
+        : null;
+      
       const payload: any = {
         name:           formData.name,
         description:    formData.description,
@@ -216,7 +222,7 @@ export default function ItemFormPage() {
         quantity:       Number(formData.quantity),
         unit:           formData.unit || 'piece(s)',
         location:       formData.location,
-        purchase_date:  formData.purchaseDate || null,
+        purchase_date:  purchaseDate || '',  // Send empty string instead of null
         condition:      formData.condition || null,
         image_path:     imagePath || null,
       };
@@ -248,7 +254,8 @@ export default function ItemFormPage() {
       navigate('/items');
     } catch (err: any) {
       logger.error('Failed to save item', { error: err });
-      toast.error(err?.message || 'Failed to save item');
+      const errorMsg = err?.response?.data?.error || err?.message || 'Failed to save item';
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
