@@ -521,9 +521,6 @@ export default function ItemsPage() {
             />
           </div>
         )}
-            </PaginationWrapper>
-          </div>
-        )}
       </div>
 
       <QRCodeModal open={qrModalOpen} onOpenChange={setQrModalOpen} item={selectedItem} />
