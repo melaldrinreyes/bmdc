@@ -4,7 +4,7 @@ import { requireRoleAsync } from '@/middleware/auth';
 import { successResponse, notFoundResponse } from '@/utils/responses';
 import { withErrorHandler } from '@/middleware/errorHandler';
 import { handleOptionsRequest } from '@/middleware/cors';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 // OPTIONS /api/attendance/me - Handle CORS preflight
 export async function OPTIONS(request: NextRequest) {
@@ -24,7 +24,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const type = searchParams.get('type') || 'records'; // 'records' or 'stats'
 
   // Get trainee_id from trainee_accounts table
-  const { data: traineeAccount, error: accountError } = await supabase
+  const { data: traineeAccount, error: accountError } = await supabaseAdmin
     .from('trainee_accounts')
     .select('trainee_id')
     .eq('user_id', userId)

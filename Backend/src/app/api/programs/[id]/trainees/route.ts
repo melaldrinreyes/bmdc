@@ -3,7 +3,7 @@ import { requireAuthAsync } from '@/middleware/auth';
 import { successResponse, notFoundResponse } from '@/utils/responses';
 import { withErrorHandler } from '@/middleware/errorHandler';
 import { handleOptionsRequest } from '@/middleware/cors';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { programService } from '@/services/programService';
 
 // OPTIONS /api/programs/:id/trainees - Handle CORS preflight
@@ -31,7 +31,7 @@ export const GET = withErrorHandler(
     const status = searchParams.get('status') || undefined;
     const search = searchParams.get('search') || undefined;
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('trainees')
       .select('id, first_name, last_name, middle_name, email, phone, status, enrollment_date, created_at, updated_at')
       .eq('program_id', id)
