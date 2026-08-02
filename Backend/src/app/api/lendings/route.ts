@@ -50,10 +50,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const body = await request.json();
   const validatedData = createLendingSchema.parse(body);
 
-  const lending = await lendingService.createLending(
-    { ...validatedData, tenantId },
-    userId
-  );
+  const lending = await lendingService.createLending(validatedData, userId, tenantId);
 
   await activityLogService.logAction(userId, 'create', 'lending', lending.id, {
     ...validatedData,

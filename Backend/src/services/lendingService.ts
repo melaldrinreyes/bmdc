@@ -70,7 +70,7 @@ export class LendingService {
     return data;
   }
 
-  async createLending(lendingData: CreateLendingInput, userId: string): Promise<Lending> {
+  async createLending(lendingData: CreateLendingInput, userId: string, tenantId?: string): Promise<Lending> {
     // Validate item availability
     const itemDetails = await itemService.getItemById(null, lendingData.item_id);
     if (!itemDetails) {
@@ -94,6 +94,8 @@ export class LendingService {
       status: 'active',
       lent_date: new Date().toISOString(),
       lent_by: userId,
+      // Inject tenant_id for tenant-scoped data isolation
+      ...(tenantId ? { tenant_id: tenantId } : {}),
     };
 
     if (lendingData.trainee_id) {
