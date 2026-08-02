@@ -42,6 +42,8 @@ import SuperAdminDashboardPage from './pages/SuperAdminDashboardPage';
 import SuperAdminReportsPage from './pages/SuperAdminReportsPage';
 import PerformanceDashboardPage from './pages/PerformanceDashboardPage';
 import ExtensionRequestsPage from './pages/ExtensionRequestsPage';
+import RegistrationsPage from './pages/RegistrationsPage';
+import TraineeApplicationsPage from './pages/TraineeApplicationsPage';
 
 // Redirect components for login and register
 function LoginRedirect() {
@@ -115,11 +117,13 @@ export default function App() {
               <Route path="/account-management"    element={<ProtectedRoute><AccountManagementPage /></ProtectedRoute>} />
               <Route path="/anomalies"             element={<ProtectedRoute><AnomalyDashboardPage /></ProtectedRoute>} />
               <Route path="/non-attendance-dates"  element={<ProtectedRoute><NonAttendanceDatesPage /></ProtectedRoute>} />
+              <Route path="/registrations"        element={<ProtectedRoute><RegistrationsPage /></ProtectedRoute>} />
 
               {/* ── Trainee-only Routes ── */}
-              <Route path="/trainee/dashboard" element={<ProtectedRoute allowedRoles={['trainee']}><TraineeDashboardPage /></ProtectedRoute>} />
-              <Route path="/trainee/profile"   element={<ProtectedRoute allowedRoles={['trainee']}><TraineeProfilePage /></ProtectedRoute>} />
-              <Route path="/trainee/programs"  element={<ProtectedRoute allowedRoles={['trainee']}><TraineeProgramsPage /></ProtectedRoute>} />
+              <Route path="/trainee/dashboard"    element={<ProtectedRoute allowedRoles={['trainee']}><TraineeDashboardPage /></ProtectedRoute>} />
+              <Route path="/trainee/profile"      element={<ProtectedRoute allowedRoles={['trainee']}><TraineeProfilePage /></ProtectedRoute>} />
+              <Route path="/trainee/programs"     element={<ProtectedRoute allowedRoles={['trainee']}><TraineeProgramsPage /></ProtectedRoute>} />
+              <Route path="/trainee/applications" element={<ProtectedRoute allowedRoles={['trainee']}><TraineeApplicationsPage /></ProtectedRoute>} />
 
               {/* ── Role-specific Admin Routes ── */}
               <Route path="/super-admin"         element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboardPage /></ProtectedRoute>} />

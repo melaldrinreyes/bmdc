@@ -169,6 +169,27 @@ export class RegistrationService {
   }
 
   /**
+   * Get trainee's own registrations (for trainee-only access)
+   */
+  async getTraineeRegistrations(email: string): Promise<PendingRegistration[]> {
+    const { data, error } = await supabaseAdmin
+      .from('pending_registrations')
+      .select('*, program:programs(id, name, description, start_date, end_date, status)')
+      .eq('email', email.toLowerCase())
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      this.throwIfPendingRegistrationsMissing(error);
+      throw error;
+    }
+
+    return (data || []).map(r => {
+      const { password_hash, ...safe } = r;
+      return safe as PendingRegistration;
+    });
+  }
+
+  /**
    * Approve a registration: create user + trainee account, mark as approved
    */
   async approveRegistration(id: string, reviewerId: string): Promise<{ user: any; trainee: any }> {
