@@ -358,9 +358,12 @@ export const traineeRegistrationSchema = z.object({
     .toLowerCase()
     .trim(),
   password: z.string()
-    .min(6, 'Password must be at least 6 characters')
+    .min(0)  // Allow empty string (for existing trainees applying to programs)
     .max(100, 'Password must not exceed 100 characters')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, 'Password must contain uppercase, lowercase, and a number'),
+    .refine(
+      (val) => val === '' || /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/.test(val),
+      'Password must contain uppercase, lowercase, and a number'
+    ),
 
   // Personal info
   first_name: z.string().min(1, 'First name is required').max(100).regex(/^[a-zA-Z\s'-]+$/),
