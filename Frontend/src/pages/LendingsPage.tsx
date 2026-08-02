@@ -650,5 +650,3 @@ export default function LendingsPage() {
     </DashboardLayout>
   );
 }
-
-export default LendingsPage;
