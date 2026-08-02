@@ -33,7 +33,32 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 export const POST = withErrorHandler(async (request: NextRequest) => {
   try {
     const body = await request.json();
+    console.log('[Registration] Received body:', {
+      username: body.username,
+      email: body.email,
+      password: body.password ? '***' : 'empty',
+      program_id: body.program_id,
+      first_name: body.first_name,
+      last_name: body.last_name,
+      phone: body.phone,
+      sex: body.sex,
+      birth_date: body.birth_date,
+      birth_place: body.birth_place,
+      civil_status: body.civil_status,
+      province: body.province,
+      municipality: body.municipality,
+      barangay: body.barangay,
+      street: body.street,
+      educational_attainment: body.educational_attainment,
+      course: body.course,
+      year_graduated: body.year_graduated,
+      classification: body.classification,
+      disability: body.disability,
+      employment_status: body.employment_status,
+    });
+    
     const validatedData = traineeRegistrationSchema.parse(body);
+    console.log('[Registration] Validation passed');
 
     const registration = await registrationService.submitRegistration(validatedData);
 
@@ -48,13 +73,18 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   } catch (error: any) {
     // Handle validation errors from Zod
     if (error.name === 'ZodError') {
-      console.error('[Registration] Validation error:', error.errors);
+      console.error('[Registration] Validation error details:', error.errors.map((e: any) => ({
+        field: e.path.join('.') || 'root',
+        message: e.message,
+        code: e.code,
+      })));
       return Response.json(
         {
           error: 'Validation failed',
           details: error.errors.map((e: any) => ({
-            field: e.path.join('.'),
+            field: e.path.join('.') || 'root',
             message: e.message,
+            code: e.code,
           })),
         },
         { status: 422 }

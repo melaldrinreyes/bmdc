@@ -385,8 +385,21 @@ export const traineeRegistrationSchema = z.object({
   barangay: z.string().min(1).max(100),
   street: z.string().min(1),
   educational_attainment: z.enum(['Elementary', 'High School', 'Senior High School', 'Vocational', 'College', 'Post Graduate']),
-  course: z.string().min(1).max(255),
-  year_graduated: z.string().length(4).regex(/^\d{4}$/),
+  course: z.string()
+    .max(255)
+    .refine(
+      (val) => val === '' || val.length >= 1,
+      'Course must be valid if provided'
+    )
+    .optional()
+    .default(''),
+  year_graduated: z.string()
+    .refine(
+      (val) => val === '' || (val.length === 4 && /^\d{4}$/.test(val)),
+      'Year graduated must be a 4-digit year or empty'
+    )
+    .optional()
+    .default(''),
   classification: z.enum(['Out-of-School Youth', 'Student', 'Unemployed', 'Underemployed', '4Ps Beneficiary']),
   disability: z.string().max(255).optional().nullable().transform(v => v === '' ? null : v),
   employment_status: z.enum(['Employed', 'Unemployed', 'Self-employed', 'Student']),
