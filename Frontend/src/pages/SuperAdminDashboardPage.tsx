@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
+import { PaginationWrapper } from '../components/PaginationWrapper';
 import {
   Building2,
   Plus,
@@ -135,7 +136,7 @@ export default function SuperAdminDashboardPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [loadingAudit, setLoadingAudit] = useState(true);
   const [auditTotal, setAuditTotal] = useState(0);
-  const [auditOffset, setAuditOffset] = useState(0);
+  const [auditCurrentPage, setAuditCurrentPage] = useState(1);
   const AUDIT_LIMIT = 20;
 
   // ── Extension requests ───────────────────────────────────────────────────
@@ -178,16 +179,17 @@ export default function SuperAdminDashboardPage() {
     }
   }, []);
 
-  const fetchAuditLogs = useCallback(async (offset = 0) => {
+  const fetchAuditLogs = useCallback(async (page = 1) => {
     try {
       setLoadingAudit(true);
+      const offset = (page - 1) * AUDIT_LIMIT;
       const res = await api.get<{ data: AuditLogEntry[]; pagination: { total: number } }>(
         '/admin/audit-logs',
         { limit: AUDIT_LIMIT, offset }
       );
       setAuditLogs(res.data?.data ?? []);
       setAuditTotal(res.data?.pagination?.total ?? 0);
-      setAuditOffset(offset);
+      setAuditCurrentPage(page);
     } catch (error) {
       logger.error('Failed to fetch audit logs', { error });
     } finally {
@@ -214,7 +216,7 @@ export default function SuperAdminDashboardPage() {
   useEffect(() => {
     fetchTenants();
     fetchPlatformSummary();
-    fetchAuditLogs(0);
+    fetchAuditLogs(1);
     fetchExtRequests();
   }, [fetchTenants, fetchPlatformSummary, fetchAuditLogs, fetchExtRequests]);
 
@@ -344,7 +346,6 @@ export default function SuperAdminDashboardPage() {
     : [];
 
   const auditTotalPages = Math.ceil(auditTotal / AUDIT_LIMIT);
-  const auditCurrentPage = Math.floor(auditOffset / AUDIT_LIMIT) + 1;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -625,26 +626,12 @@ export default function SuperAdminDashboardPage() {
 
                     {/* Pagination */}
                     {auditTotalPages > 1 && (
-                      <div className="flex items-center justify-between px-4 py-3 border-t">
-                        <p className="text-sm text-muted-foreground">
-                          Page {auditCurrentPage} of {auditTotalPages}
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline" size="sm"
-                            disabled={auditOffset === 0 || loadingAudit}
-                            onClick={() => fetchAuditLogs(Math.max(0, auditOffset - AUDIT_LIMIT))}
-                          >
-                            Previous
-                          </Button>
-                          <Button
-                            variant="outline" size="sm"
-                            disabled={auditCurrentPage >= auditTotalPages || loadingAudit}
-                            onClick={() => fetchAuditLogs(auditOffset + AUDIT_LIMIT)}
-                          >
-                            Next
-                          </Button>
-                        </div>
+                      <div className="flex justify-center pt-4 px-4 py-3 border-t">
+                        <PaginationWrapper
+                          currentPage={auditCurrentPage}
+                          totalPages={auditTotalPages}
+                          onPageChange={(page) => fetchAuditLogs(page)}
+                        />
                       </div>
                     )}
                   </>

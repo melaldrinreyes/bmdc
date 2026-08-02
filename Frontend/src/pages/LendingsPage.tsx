@@ -6,15 +6,6 @@ import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Avatar, AvatarFallback } from '../components/ui/avatar';
-import { 
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '../components/ui/pagination';
 import { CheckCircle2, Clock, AlertTriangle, QrCode, Download, PackagePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
@@ -22,6 +13,7 @@ import { generateLendingsPDF } from '../utils/pdfGenerator';
 import lendingService from '../services/lendingService';
 import AddLendingModal from '../components/AddLendingModal';
 import { StatCardsSkeleton, TableSkeleton, CardGridSkeleton, ListSkeleton } from '../components/LoadingSkeletons';
+import { PaginationWrapper } from '../components/PaginationWrapper';
 import logger from '../utils/logger';
 
 type ViewMode = 'table' | 'card';
@@ -409,11 +401,13 @@ export default function LendingsPage() {
                   </CardContent>
                 </Card>
                 {borrowed.length > 0 && borrowedTotalPages > 1 && (
-                  <PaginationComponent
-                    currentPage={currentPages.borrowed}
-                    totalPages={borrowedTotalPages}
-                    onPageChange={(page) => setCurrentPage('borrowed', page)}
-                  />
+                  <div className="flex justify-center pt-4">
+                    <PaginationWrapper
+                      currentPage={currentPages.borrowed}
+                      totalPages={borrowedTotalPages}
+                      onPageChange={(page) => setCurrentPage('borrowed', page)}
+                    />
+                  </div>
                 )}
               </TabsContent>
             </>
@@ -463,11 +457,13 @@ export default function LendingsPage() {
                 </CardContent>
               </Card>
               {returned.length > 0 && returnedTotalPages > 1 && (
-                <PaginationComponent
-                  currentPage={currentPages.returned}
-                  totalPages={returnedTotalPages}
-                  onPageChange={(page) => setCurrentPage('returned', page)}
-                />
+                <div className="flex justify-center pt-4">
+                  <PaginationWrapper
+                    currentPage={currentPages.returned}
+                    totalPages={returnedTotalPages}
+                    onPageChange={(page) => setCurrentPage('returned', page)}
+                  />
+                </div>
               )}
             </TabsContent>
           )}
@@ -531,11 +527,13 @@ export default function LendingsPage() {
                 </CardContent>
               </Card>
               {overdue.length > 0 && overdueTotalPages > 1 && (
-                <PaginationComponent
-                  currentPage={currentPages.overdue}
-                  totalPages={overdueTotalPages}
-                  onPageChange={(page) => setCurrentPage('overdue', page)}
-                />
+                <div className="flex justify-center pt-4">
+                  <PaginationWrapper
+                    currentPage={currentPages.overdue}
+                    totalPages={overdueTotalPages}
+                    onPageChange={(page) => setCurrentPage('overdue', page)}
+                  />
+                </div>
               )}
             </TabsContent>
           )}
@@ -550,11 +548,13 @@ export default function LendingsPage() {
                   ))}
                 </div>
                 {borrowed.length > 0 && borrowedTotalPages > 1 && (
-                  <PaginationComponent
-                    currentPage={currentPages.borrowed}
-                    totalPages={borrowedTotalPages}
-                    onPageChange={(page) => setCurrentPage('borrowed', page)}
-                  />
+                  <div className="flex justify-center pt-4">
+                    <PaginationWrapper
+                      currentPage={currentPages.borrowed}
+                      totalPages={borrowedTotalPages}
+                      onPageChange={(page) => setCurrentPage('borrowed', page)}
+                    />
+                  </div>
                 )}
               </TabsContent>
 
@@ -565,11 +565,13 @@ export default function LendingsPage() {
                   ))}
                 </div>
                 {returned.length > 0 && returnedTotalPages > 1 && (
-                  <PaginationComponent
-                    currentPage={currentPages.returned}
-                    totalPages={returnedTotalPages}
-                    onPageChange={(page) => setCurrentPage('returned', page)}
-                  />
+                  <div className="flex justify-center pt-4">
+                    <PaginationWrapper
+                      currentPage={currentPages.returned}
+                      totalPages={returnedTotalPages}
+                      onPageChange={(page) => setCurrentPage('returned', page)}
+                    />
+                  </div>
                 )}
               </TabsContent>
 
@@ -580,11 +582,13 @@ export default function LendingsPage() {
                   ))}
                 </div>
                 {overdue.length > 0 && overdueTotalPages > 1 && (
-                  <PaginationComponent
-                    currentPage={currentPages.overdue}
-                    totalPages={overdueTotalPages}
-                    onPageChange={(page) => setCurrentPage('overdue', page)}
-                  />
+                  <div className="flex justify-center pt-4">
+                    <PaginationWrapper
+                      currentPage={currentPages.overdue}
+                      totalPages={overdueTotalPages}
+                      onPageChange={(page) => setCurrentPage('overdue', page)}
+                    />
+                  </div>
                 )}
               </TabsContent>
             </>
@@ -597,11 +601,13 @@ export default function LendingsPage() {
                 <LendingCard key={lending.id} lending={lending} />
               ))}
               {borrowed.length > 0 && borrowedTotalPages > 1 && (
-                <PaginationComponent
-                  currentPage={currentPages.borrowed}
-                  totalPages={borrowedTotalPages}
-                  onPageChange={(page) => setCurrentPage('borrowed', page)}
-                />
+                <div className="flex justify-center pt-4">
+                  <PaginationWrapper
+                    currentPage={currentPages.borrowed}
+                    totalPages={borrowedTotalPages}
+                    onPageChange={(page) => setCurrentPage('borrowed', page)}
+                  />
+                </div>
               )}
             </TabsContent>
           )}
@@ -612,11 +618,13 @@ export default function LendingsPage() {
                 <LendingCard key={lending.id} lending={lending} />
               ))}
               {returned.length > 0 && returnedTotalPages > 1 && (
-                <PaginationComponent
-                  currentPage={currentPages.returned}
-                  totalPages={returnedTotalPages}
-                  onPageChange={(page) => setCurrentPage('returned', page)}
-                />
+                <div className="flex justify-center pt-4">
+                  <PaginationWrapper
+                    currentPage={currentPages.returned}
+                    totalPages={returnedTotalPages}
+                    onPageChange={(page) => setCurrentPage('returned', page)}
+                  />
+                </div>
               )}
             </TabsContent>
           )}
@@ -627,11 +635,13 @@ export default function LendingsPage() {
                 <LendingCard key={lending.id} lending={lending} />
               ))}
               {overdue.length > 0 && overdueTotalPages > 1 && (
-                <PaginationComponent
-                  currentPage={currentPages.overdue}
-                  totalPages={overdueTotalPages}
-                  onPageChange={(page) => setCurrentPage('overdue', page)}
-                />
+                <div className="flex justify-center pt-4">
+                  <PaginationWrapper
+                    currentPage={currentPages.overdue}
+                    totalPages={overdueTotalPages}
+                    onPageChange={(page) => setCurrentPage('overdue', page)}
+                  />
+                </div>
               )}
             </TabsContent>
           )}
@@ -641,66 +651,4 @@ export default function LendingsPage() {
   );
 }
 
-// Pagination Component
-function PaginationComponent({ 
-  currentPage, 
-  totalPages, 
-  onPageChange 
-}: { 
-  currentPage: number; 
-  totalPages: number; 
-  onPageChange: (page: number) => void;
-}) {
-  return (
-    <div className="flex justify-center">
-      <Pagination>
-        <PaginationContent>
-          <PaginationItem>
-            <PaginationPrevious 
-              onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-              className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-              size="default"
-            />
-          </PaginationItem>
-          
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-            // Show first page, last page, current page, and pages around current
-            if (
-              page === 1 ||
-              page === totalPages ||
-              (page >= currentPage - 1 && page <= currentPage + 1)
-            ) {
-              return (
-                <PaginationItem key={page}>
-                  <PaginationLink
-                    onClick={() => onPageChange(page)}
-                    isActive={currentPage === page}
-                    className="cursor-pointer"
-                    size="default"
-                  >
-                    {page}
-                  </PaginationLink>
-                </PaginationItem>
-              );
-            } else if (page === currentPage - 2 || page === currentPage + 2) {
-              return (
-                <PaginationItem key={page}>
-                  <PaginationEllipsis />
-                </PaginationItem>
-              );
-            }
-            return null;
-          })}
-
-          <PaginationItem>
-            <PaginationNext 
-              onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-              className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-              size="default"
-            />
-          </PaginationItem>
-        </PaginationContent>
-      </Pagination>
-    </div>
-  );
-}
+export default LendingsPage;
