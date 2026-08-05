@@ -45,6 +45,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const authResult = await requireAuthAsync(request);
   if ('error' in authResult) return authResult.error;
 
+  const user = authResult.user;
   const { searchParams } = new URL(request.url);
   const startDate = searchParams.get('startDate') || searchParams.get('start_date') || undefined;
   const endDate = searchParams.get('endDate') || searchParams.get('end_date') || undefined;
@@ -63,11 +64,17 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       entity_id,
       details,
       created_at,
+      tenant_id,
       users:user_id (
         username,
         email
       )
     `);
+
+  // Tenant isolation: non-super-admins can only see their own tenant's activity
+  if (user.role !== 'super_admin') {
+    logsQuery = logsQuery.eq('tenant_id', user.tenantId);
+  }
 
   if (startDate) {
     logsQuery = logsQuery.gte('created_at', startDate);

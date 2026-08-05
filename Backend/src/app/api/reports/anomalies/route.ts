@@ -15,11 +15,15 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const authResult = await requireAuthAsync(request);
   if ('error' in authResult) return authResult.error;
   
+  const user = authResult.user;
   const { searchParams } = new URL(request.url);
   const start_date = searchParams.get('start_date') || undefined;
   const end_date = searchParams.get('end_date') || undefined;
   
-  const stats = await anomalyService.getAnomalyStats();
+  // Tenant isolation: non-super-admins can only see their own tenant's anomalies
+  const tenantId = user.role !== 'super_admin' ? user.tenantId : undefined;
+  
+  const stats = await anomalyService.getAnomalyStats(tenantId);
   
   return successResponse(stats);
 });

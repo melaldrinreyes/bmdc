@@ -15,20 +15,32 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const authResult = await requireRoleAsync(request, ['local_admin', 'staff_inventory_manager', 'staff_training_coordinator']);
   if ('error' in authResult) return authResult.error;
 
+  const user = authResult.user;
   const { searchParams } = new URL(request.url);
   const startDate = searchParams.get('startDate') || searchParams.get('start_date') || undefined;
   const endDate = searchParams.get('endDate') || searchParams.get('end_date') || undefined;
 
-  const { data: users, error: usersError } = await supabaseAdmin
+  let usersQuery = supabaseAdmin
     .from('users')
-    .select('id, email, username, role, created_at')
-    .order('created_at', { ascending: false });
+    .select('id, email, username, role, created_at');
+
+  // Tenant isolation: non-super-admins can only see their own tenant's users
+  if (user.role !== 'super_admin') {
+    usersQuery = usersQuery.eq('tenant_id', user.tenantId);
+  }
+
+  const { data: users, error: usersError } = await usersQuery.order('created_at', { ascending: false });
 
   if (usersError) throw usersError;
 
   let logsQuery = supabaseAdmin
     .from('activity_logs')
     .select('user_id, created_at');
+
+  // Tenant isolation: non-super-admins can only see their own tenant's activity logs
+  if (user.role !== 'super_admin') {
+    logsQuery = logsQuery.eq('tenant_id', user.tenantId);
+  }
 
   if (startDate) {
     logsQuery = logsQuery.gte('created_at', startDate);

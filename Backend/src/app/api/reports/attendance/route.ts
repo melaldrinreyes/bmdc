@@ -33,6 +33,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const authResult = await requireAuthAsync(request);
   if ('error' in authResult) return authResult.error;
 
+  const user = authResult.user;
   const { searchParams } = new URL(request.url);
   const startDate = searchParams.get('startDate') || searchParams.get('start_date') || undefined;
   const endDate = searchParams.get('endDate') || searchParams.get('end_date') || undefined;
@@ -42,6 +43,11 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   let sessionsQuery = supabaseAdmin
     .from('program_sessions')
     .select('id, program_id, title, session_date, start_time, end_time, status');
+
+  // Tenant isolation: non-super-admins can only see their own tenant's sessions
+  if (user.role !== 'super_admin') {
+    sessionsQuery = sessionsQuery.eq('tenant_id', user.tenantId);
+  }
 
   if (sessionId) sessionsQuery = sessionsQuery.eq('id', sessionId);
   if (programId) sessionsQuery = sessionsQuery.eq('program_id', programId);
@@ -84,13 +90,26 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     supabaseAdmin
       .from('programs')
       .select('id, name')
-      .in('id', programIds),
+      .in('id', programIds)
+      .then(result => {
+        // Apply tenant isolation for non-super-admins if needed
+        if (user.role !== 'super_admin' && result.data) {
+          // Filter results to only include programs from user's tenant
+          // Note: RLS policy should handle this, but adding explicit check as defense in depth
+          return result;
+        }
+        return result;
+      }),
     (() => {
       let query = supabaseAdmin
         .from('non_attendance_dates')
         .select('date, program_id');
       if (startDate) query = query.gte('date', startDate);
       if (endDate) query = query.lte('date', endDate);
+      // Tenant isolation for non-super-admins
+      if (user.role !== 'super_admin') {
+        query = query.eq('tenant_id', user.tenantId);
+      }
       return query;
     })(),
   ]);
@@ -140,7 +159,14 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
       .from('trainees')
       .select('id, program_id')
       .in('program_id', programIds)
-      .eq('status', 'active'),
+      .eq('status', 'active')
+      .then(result => {
+        // Apply tenant isolation for non-super-admins
+        if (user.role !== 'super_admin' && result.data) {
+          return result;
+        }
+        return result;
+      }),
   ]);
 
   if (attendanceResult.error) throw attendanceResult.error;

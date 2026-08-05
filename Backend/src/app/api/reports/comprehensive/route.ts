@@ -38,10 +38,16 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const startDate = filters.startDate;
   const endDate = filters.endDate;
   const moduleFilter = filters.module;
+  const user = authResult.user;
 
   let traineesQuery = supabaseAdmin
     .from('trainees')
     .select('id, program_id, status, enrollment_date, created_at');
+
+  // Tenant isolation: non-super-admins can only see their own tenant's trainees
+  if (user.role !== 'super_admin') {
+    traineesQuery = traineesQuery.eq('tenant_id', user.tenantId);
+  }
 
   if (startDate) traineesQuery = traineesQuery.gte('enrollment_date', startDate);
   if (endDate) traineesQuery = traineesQuery.lte('enrollment_date', endDate);
@@ -50,12 +56,22 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     .from('programs')
     .select('id, name, status, max_trainees, start_date, end_date, created_at');
 
+  // Tenant isolation: non-super-admins can only see their own tenant's programs
+  if (user.role !== 'super_admin') {
+    programsQuery = programsQuery.eq('tenant_id', user.tenantId);
+  }
+
   if (startDate) programsQuery = programsQuery.gte('start_date', startDate);
   if (endDate) programsQuery = programsQuery.lte('start_date', endDate);
 
   let lendingsQuery = supabaseAdmin
     .from('lendings')
     .select('id, status, quantity, lent_date, expected_return_date, actual_return_date, item:items(name)');
+
+  // Tenant isolation: non-super-admins can only see their own tenant's lendings
+  if (user.role !== 'super_admin') {
+    lendingsQuery = lendingsQuery.eq('tenant_id', user.tenantId);
+  }
 
   if (startDate) lendingsQuery = lendingsQuery.gte('lent_date', startDate);
   if (endDate) lendingsQuery = lendingsQuery.lte('lent_date', endDate);
@@ -64,12 +80,22 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     .from('anomalies')
     .select('id, status, severity, category, detected_at');
 
+  // Tenant isolation: non-super-admins can only see their own tenant's anomalies
+  if (user.role !== 'super_admin') {
+    anomaliesQuery = anomaliesQuery.eq('tenant_id', user.tenantId);
+  }
+
   if (startDate) anomaliesQuery = anomaliesQuery.gte('detected_at', startDate);
   if (endDate) anomaliesQuery = anomaliesQuery.lte('detected_at', endDate);
 
   let activityQuery = supabaseAdmin
     .from('activity_logs')
     .select('id, user_id, action, entity_type, created_at');
+
+  // Tenant isolation: non-super-admins can only see their own tenant's activity
+  if (user.role !== 'super_admin') {
+    activityQuery = activityQuery.eq('tenant_id', user.tenantId);
+  }
 
   if (startDate) activityQuery = activityQuery.gte('created_at', startDate);
   if (endDate) activityQuery = activityQuery.lte('created_at', endDate);
@@ -84,13 +110,17 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     { data: activityLogs, error: activityError },
     { data: users, error: usersError },
   ] = await Promise.all([
-    supabaseAdmin.from('items').select('id, category, status, quantity, available_quantity'),
+    user.role !== 'super_admin'
+      ? supabaseAdmin.from('items').select('id, category, status, quantity, available_quantity').eq('tenant_id', user.tenantId)
+      : supabaseAdmin.from('items').select('id, category, status, quantity, available_quantity'),
     traineesQuery,
     programsQuery,
     lendingsQuery,
     anomaliesQuery,
     activityQuery,
-    supabaseAdmin.from('users').select('id, role, email, username, created_at'),
+    user.role !== 'super_admin'
+      ? supabaseAdmin.from('users').select('id, role, email, username, created_at').eq('tenant_id', user.tenantId)
+      : supabaseAdmin.from('users').select('id, role, email, username, created_at'),
   ]);
 
   if (itemsError) throw itemsError;

@@ -40,6 +40,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const authResult = await requireRoleAsync(request, ['local_admin', 'staff_inventory_manager', 'staff_training_coordinator']);
   if ('error' in authResult) return authResult.error;
 
+  const user = authResult.user;
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status') || undefined;
   const isActiveParam = searchParams.get('isActive') || searchParams.get('is_active');
@@ -48,9 +49,14 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
   let query = supabaseAdmin
     .from('report_schedules')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(limit);
+    .select('*');
+
+  // Tenant isolation: non-super-admins can only see their own tenant's schedules
+  if (user.role !== 'super_admin') {
+    query = query.eq('tenant_id', user.tenantId);
+  }
+
+  query = query.order('created_at', { ascending: false }).limit(limit);
 
   if (status) {
     query = query.eq('status', status);
@@ -77,6 +83,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const authResult = await requireRoleAsync(request, ['local_admin', 'staff_inventory_manager', 'staff_training_coordinator']);
   if ('error' in authResult) return authResult.error;
 
+  const user = authResult.user;
   const body = await request.json();
   const validated = scheduleReportSchema.parse(body);
 
@@ -95,6 +102,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       execution_strategy: 'db-cron-worker',
       next_run_at: nextRunAt,
       created_by: authResult.user.userId,
+      tenant_id: user.tenantId,
     })
     .select('*')
     .single();
@@ -117,6 +125,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       recipients_count: Array.isArray(data.recipients) ? data.recipients.length : 0,
       format: data.format,
       next_run_at: data.next_run_at,
+      tenant_id: user.tenantId,
     }
   );
 
