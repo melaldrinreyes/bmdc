@@ -70,7 +70,7 @@ const defaultCmsSettings: CMSSettings = {
   },
   appearance: {
     logo: '',
-    heroBackground: '',
+    heroBackground: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=1600&h=900&fit=crop',
   },
   mission: 'To provide accessible, quality training and development programs that equip individuals with the skills and knowledge necessary to improve their livelihood and contribute to community development.',
   vision: 'A community where every individual has access to quality education and training, empowering them to achieve their full potential and contribute to sustainable economic growth and social progress.',
