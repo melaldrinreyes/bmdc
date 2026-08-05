@@ -36,6 +36,7 @@ export class TraineeService {
     program_id?: string;
     status?: string;
     search?: string;
+    tenant_id?: string;
   }): Promise<Trainee[]> {
     let query = supabaseAdmin
       .from('trainees')
@@ -44,6 +45,11 @@ export class TraineeService {
     // Apply tenant filtering for non-super-admin users
     if (context && !context.isSuperAdmin) {
       query = query.eq('tenant_id', context.tenantId);
+    }
+
+    // Also allow explicit tenant_id filter
+    if (filters?.tenant_id) {
+      query = query.eq('tenant_id', filters.tenant_id);
     }
     
     if (filters?.program_id) {
@@ -109,11 +115,12 @@ export class TraineeService {
     } as Trainee);
   }
 
-  async getTraineeByEmail(email: string): Promise<Trainee | null> {
+  async getTraineeByEmail(email: string, tenantId: string): Promise<Trainee | null> {
     const { data, error } = await supabaseAdmin
       .from('trainees')
       .select('*')
       .eq('email', this.normalizeEmail(email))
+      .eq('tenant_id', tenantId)
       .single();
     
     if (error && error.code !== 'PGRST116') throw error;
@@ -126,8 +133,9 @@ export class TraineeService {
   }
 
   async createTrainee(traineeData: CreateTraineeInput & { tenantId?: string }): Promise<{ trainee: Trainee; temp_password: string }> {
-    // Check if email already exists
-    const existingTrainee = await this.getTraineeByEmail(traineeData.email);
+    // Check if email already exists within the same tenant
+    const { tenantId, ...rest } = traineeData as any;
+    const existingTrainee = await this.getTraineeByEmail(traineeData.email, tenantId);
     if (existingTrainee) {
       throw new Error('A trainee with this email already exists');
     }
@@ -148,8 +156,6 @@ export class TraineeService {
     if (existingUserByEmail) {
       throw new Error('An account with this email already exists');
     }
-
-    const { tenantId, ...rest } = traineeData as any;
     
     const newTrainee: Partial<Trainee> & { tenant_id?: string } = {
       ...rest,
@@ -323,11 +329,12 @@ export class TraineeService {
     }
   }
 
-  async getTraineeByQRCode(qrCode: string): Promise<Trainee | null> {
+  async getTraineeByQRCode(qrCode: string, tenantId: string): Promise<Trainee | null> {
     const { data, error } = await supabaseAdmin
       .from('trainees')
       .select('*')
       .eq('qr_code', qrCode)
+      .eq('tenant_id', tenantId)
       .single();
     
     if (error && error.code !== 'PGRST116') throw error;
@@ -339,8 +346,8 @@ export class TraineeService {
     return this.withThumbnail(data as Trainee);
   }
 
-  async getTraineesByProgram(programId: string): Promise<Trainee[]> {
-    return this.getAllTrainees(null, { program_id: programId });
+  async getTraineesByProgram(programId: string, tenantId: string): Promise<Trainee[]> {
+    return this.getAllTrainees(null, { program_id: programId, tenant_id: tenantId });
   }
 }
 

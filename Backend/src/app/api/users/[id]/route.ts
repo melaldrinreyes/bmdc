@@ -27,18 +27,25 @@ export const GET = withErrorHandler(async (request: NextRequest, { params }: { p
   const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
   if ('error' in authResult) return authResult.error;
 
+  const user = authResult.user;
   const resolvedParams = await params;
   const { id } = resolvedParams;
 
-  const { data: user, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('users')
     .select('id, email, username, role, created_at, updated_at')
-    .eq('id', id)
-    .single();
+    .eq('id', id);
 
-  if (error || !user) return errorResponse('User not found', 404);
+  // Tenant isolation: non-super-admins can only access users from their own tenant
+  if (user.role !== 'super_admin') {
+    query = query.eq('tenant_id', user.tenantId);
+  }
 
-  return successResponse(user);
+  const { data: foundUser, error } = await query.single();
+
+  if (error || !foundUser) return errorResponse('User not found', 404);
+
+  return successResponse(foundUser);
 });
 
 /**
@@ -48,26 +55,39 @@ export const GET = withErrorHandler(async (request: NextRequest, { params }: { p
 export const PUT = withErrorHandler(async (request: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) => {
   const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
   if ('error' in authResult) return authResult.error;
+  
+  const authUser = authResult.user;
   const resolvedParams = await params;
   const { id } = resolvedParams;
   const body = await request.json();
   const validatedData = updateUserSchema.parse(body);
 
-  const { data: existingUser } = await supabaseAdmin
+  // Verify user exists and belongs to the same tenant
+  let query = supabaseAdmin
     .from('users')
     .select('id')
-    .eq('id', id)
-    .single();
+    .eq('id', id);
+
+  if (authUser.role !== 'super_admin') {
+    query = query.eq('tenant_id', authUser.tenantId);
+  }
+
+  const { data: existingUser } = await query.single();
 
   if (!existingUser) return errorResponse('User not found', 404);
 
   if (validatedData.email) {
-    const { data: emailUser } = await supabaseAdmin
+    let emailQuery = supabaseAdmin
       .from('users')
       .select('id')
       .eq('email', validatedData.email)
-      .neq('id', id)
-      .single();
+      .neq('id', id);
+
+    if (authUser.role !== 'super_admin') {
+      emailQuery = emailQuery.eq('tenant_id', authUser.tenantId);
+    }
+
+    const { data: emailUser } = await emailQuery.single();
 
     if (emailUser) return errorResponse('Email already in use', 409);
   }
@@ -80,16 +100,22 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: { p
     updateData.password_hash = await hashPassword(validatedData.password);
   }
 
-  const { data: user, error } = await supabaseAdmin
+  let updateQuery = supabaseAdmin
     .from('users')
     .update(updateData)
-    .eq('id', id)
+    .eq('id', id);
+
+  if (authUser.role !== 'super_admin') {
+    updateQuery = updateQuery.eq('tenant_id', authUser.tenantId);
+  }
+
+  const { data: updatedUser, error } = await updateQuery
     .select('id, email, username, role, created_at, updated_at')
     .single();
 
   if (error) throw error;
 
-  return successResponse(user);
+  return successResponse(updatedUser);
 });
 
 /**
@@ -100,14 +126,20 @@ export const DELETE = withErrorHandler(async (request: NextRequest, { params }: 
   const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
   if ('error' in authResult) return authResult.error;
 
+  const authUser = authResult.user;
   const resolvedParams = await params;
   const { id } = resolvedParams;
 
-  const { data: existingUser } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('users')
     .select('id, email')
-    .eq('id', id)
-    .single();
+    .eq('id', id);
+
+  if (authUser.role !== 'super_admin') {
+    query = query.eq('tenant_id', authUser.tenantId);
+  }
+
+  const { data: existingUser } = await query.single();
 
   if (!existingUser) return errorResponse('User not found', 404);
 
@@ -115,10 +147,16 @@ export const DELETE = withErrorHandler(async (request: NextRequest, { params }: 
     return errorResponse('Cannot delete the main admin account', 403);
   }
 
-  const { error } = await supabaseAdmin
+  let deleteQuery = supabaseAdmin
     .from('users')
     .delete()
     .eq('id', id);
+
+  if (authUser.role !== 'super_admin') {
+    deleteQuery = deleteQuery.eq('tenant_id', authUser.tenantId);
+  }
+
+  const { error } = await deleteQuery;
 
   if (error) throw error;
 

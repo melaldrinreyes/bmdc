@@ -10,6 +10,7 @@ export class LendingService {
     status?: string;
     start_date?: string;
     end_date?: string;
+    tenant_id?: string;
   }): Promise<Lending[]> {
     let query = supabaseAdmin.from('lendings').select(`
       *,
@@ -20,6 +21,11 @@ export class LendingService {
     // Apply tenant filtering for non-super-admin users
     if (context && !context.isSuperAdmin) {
       query = query.eq('tenant_id', context.tenantId);
+    }
+
+    // Also allow explicit tenant_id filter
+    if (filters?.tenant_id) {
+      query = query.eq('tenant_id', filters.tenant_id);
     }
     
     if (filters?.trainee_id) {
@@ -167,34 +173,56 @@ export class LendingService {
     return updatedLending;
   }
 
-  async markOverdue(): Promise<number> {
+  async markOverdue(tenantId?: string): Promise<number> {
     const today = new Date().toISOString().split('T')[0];
-    const { data: lendings, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('lendings')
       .select('*')
       .eq('status', 'active')
       .lt('expected_return_date', today);
+
+    // Apply tenant filtering if provided
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+
+    const { data: lendings, error } = await query;
     
     if (error) throw error;
     
     let count = 0;
     for (const lending of lendings || []) {
-      await supabaseAdmin
+      let updateQuery = supabaseAdmin
         .from('lendings')
         .update({ status: 'overdue' })
         .eq('id', lending.id);
+
+      // Apply tenant filtering if provided
+      if (tenantId) {
+        updateQuery = updateQuery.eq('tenant_id', tenantId);
+      }
+
+      await updateQuery;
       count++;
     }
     
     return count;
   }
 
-  async getLendingsByTrainee(traineeId: string): Promise<Lending[]> {
-    return this.getAllLendings(null, { trainee_id: traineeId });
+  async getLendingsByTrainee(traineeId: string, tenantId?: string): Promise<Lending[]> {
+    const filters = { trainee_id: traineeId };
+    if (tenantId) {
+      filters['tenant_id' as any] = tenantId;
+    }
+    return this.getAllLendings(null, filters as any);
   }
 
-  async getActiveLendings(): Promise<Lending[]> {
-    return this.getAllLendings(null, { status: 'active' });
+  async getActiveLendings(tenantId?: string): Promise<Lending[]> {
+    const filters = { status: 'active' };
+    if (tenantId) {
+      filters['tenant_id' as any] = tenantId;
+    }
+    return this.getAllLendings(null, filters as any);
   }
 
   async getOverdueLendings(context: TenantContext | null): Promise<Lending[]> {
