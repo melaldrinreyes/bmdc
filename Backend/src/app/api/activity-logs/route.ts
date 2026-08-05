@@ -33,6 +33,17 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     tenant_id = user.tenantId;
   }
   
+  console.log('[Activity Logs API] Fetching logs with filters:', {
+    user_id,
+    entity_type,
+    action,
+    start_date,
+    end_date,
+    limit,
+    tenant_id,
+    is_super_admin: isSuperAdmin,
+  });
+  
   const logs = await activityLogService.getAllLogs({
     user_id,
     entity_type,
@@ -43,6 +54,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     tenant_id,
     is_super_admin: isSuperAdmin,
   });
+  
+  console.log('[Activity Logs API] Found', logs.length, 'logs');
   
   // Transform to camelCase for frontend
   const transformedLogs = logs.map(log => ({
