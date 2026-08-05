@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePrograms } from '../contexts/ProgramsContext';
 import { useState, useEffect, useRef } from 'react';
@@ -24,7 +24,15 @@ import {
   Sparkles,
   ArrowRight,
   Eye,
+  Building2,
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 
 interface CMSSettings {
   hero: {
@@ -125,16 +133,48 @@ export default function LandingPage() {
   const { isAuthenticated } = useAuth();
   const { programs: contextPrograms } = usePrograms();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [cmsSettings, setCmsSettings] = useState<CMSSettings>(defaultCmsSettings);
   const [heroImgLoaded, setHeroImgLoaded] = useState(false);
   const heroRef = useRef<HTMLElement>(null);
+  const [allTenants, setAllTenants] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
+  const [loadingTenants, setLoadingTenants] = useState(true);
 
   // Parallax scroll effect for hero background
   const { scrollY } = useScroll();
   const heroParallax = useTransform(scrollY, [0, 600], [0, 120]);
+
+  // Fetch available tenants for super admin
+  useEffect(() => {
+    const fetchTenants = async () => {
+      try {
+        setLoadingTenants(true);
+        const response = await fetch('/api/admin/tenants');
+        if (response.ok) {
+          const data = await response.json();
+          const tenants = data.data || [];
+          setAllTenants(tenants);
+          // Set initial tenant from URL or first tenant
+          const tenantParam = searchParams.get('tenant_id');
+          if (tenantParam) {
+            setSelectedTenantId(tenantParam);
+          } else if (tenants.length > 0) {
+            setSelectedTenantId(tenants[0].id);
+          }
+        }
+      } catch (error) {
+        logger.error('Failed to fetch tenants', { error });
+      } finally {
+        setLoadingTenants(false);
+      }
+    };
+    
+    fetchTenants();
+  }, []);
 
   // Auto-open login or registration modal when redirected
   useEffect(() => {
@@ -152,21 +192,23 @@ export default function LandingPage() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const data = await cmsSettingsService.getSettings();
-        if (data) {
-          setCmsSettings(normalizeCmsSettings(data));
-        } else {
-          // Fallback to localStorage if database is empty
-          const savedSettings = localStorage.getItem('bmdc-cms-settings');
-          if (savedSettings) {
-            setCmsSettings(normalizeCmsSettings(JSON.parse(savedSettings)));
+        // Fetch CMS settings with tenant_id parameter
+        const url = selectedTenantId 
+          ? `/api/cms-settings?tenant_id=${selectedTenantId}`
+          : '/api/cms-settings';
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data) {
+            setCmsSettings(normalizeCmsSettings(data.data));
           } else {
             setCmsSettings(defaultCmsSettings);
           }
+        } else {
+          setCmsSettings(defaultCmsSettings);
         }
       } catch (error) {
         logger.error('Failed to load CMS settings', { error });
-        // Fallback to localStorage on error
         const savedSettings = localStorage.getItem('bmdc-cms-settings');
         if (savedSettings) {
           setCmsSettings(normalizeCmsSettings(JSON.parse(savedSettings)));
@@ -177,7 +219,14 @@ export default function LandingPage() {
     };
     
     loadSettings();
-  }, []);
+  }, [selectedTenantId]);
+
+  // Update URL when tenant changes
+  useEffect(() => {
+    if (selectedTenantId) {
+      setSearchParams({ tenant_id: selectedTenantId });
+    }
+  }, [selectedTenantId, setSearchParams]);
 
   // All programs from context (synced with backend)
   const allDisplayPrograms = contextPrograms;
@@ -232,8 +281,27 @@ export default function LandingPage() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
-            className="flex items-center gap-4 md:gap-6"
+            className="flex items-center gap-2 md:gap-6"
           >
+            {/* Tenant Selector - visible on medium+ screens */}
+            {allTenants.length > 1 && (
+              <div className="hidden md:flex items-center gap-2">
+                <Building2 className="size-4 text-muted-foreground" />
+                <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Select tenant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allTenants.map(tenant => (
+                      <SelectItem key={tenant.id} value={tenant.id}>
+                        {tenant.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <a href="#programs" className="hidden text-sm md:text-base font-medium text-foreground/80 transition-colors hover:text-primary md:block">
               Programs
             </a>
