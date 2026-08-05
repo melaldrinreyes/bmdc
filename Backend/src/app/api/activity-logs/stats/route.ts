@@ -30,21 +30,30 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const authResult = await requireRoleAsync(request, ['local_admin']);
   if ('error' in authResult) return authResult.error;
 
+  const user = authResult.user;
   const { searchParams } = new URL(request.url);
   const startDate = searchParams.get('startDate') || searchParams.get('start_date') || undefined;
   const endDate = searchParams.get('endDate') || searchParams.get('end_date') || undefined;
 
+  // Non-super-admin users MUST filter by their own tenant
   const logs = await activityLogService.getAllLogs({
     start_date: startDate,
     end_date: endDate,
+    tenant_id: user.tenantId,
+    is_super_admin: false,
   });
 
   const moduleCounts: Record<string, number> = {};
+  const actionCounts: Record<string, number> = {};
   const uniqueUsers = new Set<string>();
 
   logs.forEach((log: any) => {
     const moduleName = log.module || 'Unknown';
     moduleCounts[moduleName] = (moduleCounts[moduleName] || 0) + 1;
+    
+    const actionName = log.action || 'Unknown';
+    actionCounts[actionName] = (actionCounts[actionName] || 0) + 1;
+    
     if (log.user_id) uniqueUsers.add(log.user_id);
   });
 
@@ -52,6 +61,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     totalActions: logs.length,
     uniqueUsers: uniqueUsers.size,
     actionsByModule: moduleCounts,
+    actionsByAction: actionCounts,
     recentActivity: logs.slice(0, 20).map(toFrontendLog),
   });
 });
