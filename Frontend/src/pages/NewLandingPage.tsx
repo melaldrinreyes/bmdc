@@ -148,12 +148,12 @@ export default function LandingPage() {
   const { scrollY } = useScroll();
   const heroParallax = useTransform(scrollY, [0, 600], [0, 120]);
 
-  // Fetch available tenants for super admin
+  // Fetch available tenants
   useEffect(() => {
     const fetchTenants = async () => {
       try {
         setLoadingTenants(true);
-        const response = await fetch('/api/admin/tenants');
+        const response = await fetch('/api/tenants');
         if (response.ok) {
           const data = await response.json();
           const tenants = data.data || [];
