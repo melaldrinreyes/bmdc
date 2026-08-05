@@ -234,7 +234,7 @@ export default function LandingPage() {
           >
             {cmsSettings?.appearance?.logo ? (
               <img
-                src={getFileUrl(defaultCmsSettings.appearance.logo)}
+                src={getFileUrl(cmsSettings.appearance.logo)}
                 alt="BMDC Logo"
                 className="h-10 w-10 md:h-12 md:w-12 rounded-lg object-contain shadow-md"
               />
@@ -830,7 +830,7 @@ export default function LandingPage() {
             <div className="flex items-center gap-3">
               {cmsSettings?.appearance?.logo ? (
                 <img
-                  src={getFileUrl(defaultCmsSettings.appearance.logo)}
+                  src={getFileUrl(cmsSettings.appearance.logo)}
                   alt="BMDC Logo"
                   className="size-10 md:size-12 rounded-xl object-contain shadow-md"
                 />
