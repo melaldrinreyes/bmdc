@@ -51,6 +51,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     .from('users')
     .select('id, email, username, role, created_at, updated_at')
     .in('id', userIds)
+    .not('role', 'eq', 'super_admin')  // Explicitly exclude super admin accounts
     .order('created_at', { ascending: false });
 
   if (search) {
