@@ -180,8 +180,8 @@ export default function TraineeProgramsPage() {
       // Handle 409 Conflict (incomplete enrollment)
       if (error.response?.status === 409) {
         const conflictMessage = error.response?.data?.error || 
-          'You are already enrolled in an incomplete program. Please complete or drop your current program before applying to a new one.';
-        toast.error('Cannot Apply', {
+          'You have not finished taking your current program yet. Please complete or drop your current program before applying to a new one.';
+        toast.error('Cannot Apply - Program Not Finished', {
           description: conflictMessage,
         });
         console.warn('[TraineeProgramsPage] Conflict error (409):', conflictMessage);

@@ -173,7 +173,7 @@ export class RegistrationService {
       });
 
       throw new ConflictError(
-        'You are already enrolled in an incomplete program. Please complete or drop your current program before applying to a new one.'
+        `You have not finished taking your current program yet. Please complete or drop your current program before applying to a new one.`
       );
     }
     // ========== END: Incomplete enrollment check ==========
