@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { usePrograms } from '../contexts/ProgramsContext';
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -9,27 +10,12 @@ import LoginModal from '../components/LoginModal';
 import RegistrationModal from '../components/RegistrationModal';
 import ProgramDetailsModal from '../components/ProgramDetailsModal';
 import { getFileUrl } from '../services/api';
-import { programService } from '../services/programService';
-import { type Program, isProgramExpired } from '../utils/programHelpers';
+import { type Program } from '../utils/programHelpers';
 import { getContrastTextColor } from '../utils/contrastText';
 import logger from '../utils/logger';
 import cmsSettingsService from '../services/cmsSettingsService';
 import {
   GraduationCap,
-  Laptop,
-  Wrench,
-  ChefHat,
-  Users,
-  Briefcase,
-  Heart,
-  Scissors,
-  Paintbrush,
-  Camera,
-  Music,
-  Code,
-  Car,
-  Calendar,
-  Clock,
   Target,
   Facebook,
   MapPin,
@@ -37,7 +23,7 @@ import {
   Mail,
   Sparkles,
   ArrowRight,
-  Star,
+  Eye,
 } from 'lucide-react';
 
 interface CMSSettings {
@@ -103,15 +89,6 @@ const normalizeCmsSettings = (saved: Partial<CMSSettings> | null): CMSSettings =
   footer: { ...defaultCmsSettings.footer, ...saved?.footer },
 });
 
-// Icon mapping for programs
-const getIconComponent = (iconName: string) => {
-  const iconMap: Record<string, any> = {
-    Laptop, Wrench, ChefHat, Users, Briefcase, Heart,
-    Scissors, Paintbrush, Camera, Music, Code, Car, GraduationCap,
-  };
-  return iconMap[iconName] || GraduationCap;
-};
-
 // Format date helper
 const formatDate = (dateString: string) => {
   if (!dateString) return 'TBA';
@@ -146,14 +123,13 @@ const daysUntilStart = (startDate: string): number => {
 
 export default function LandingPage() {
   const { isAuthenticated } = useAuth();
+  const { programs: contextPrograms } = usePrograms();
   const location = useLocation();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
-  const [programs, setPrograms] = useState<Program[]>([]);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [cmsSettings, setCmsSettings] = useState<CMSSettings>(defaultCmsSettings);
   const [heroImgLoaded, setHeroImgLoaded] = useState(false);
-  const [brokenProgramImages, setBrokenProgramImages] = useState<Record<string, boolean>>({});
   const heroRef = useRef<HTMLElement>(null);
 
   // Parallax scroll effect for hero background
@@ -203,70 +179,8 @@ export default function LandingPage() {
     loadSettings();
   }, []);
 
-  // Load programs from API — fetch both active and upcoming
-  useEffect(() => {
-    const fetchPrograms = async () => {
-      try {
-        const [activeRes, upcomingRes] = await Promise.all([
-          programService.getPrograms({ status: 'active' }),
-          programService.getPrograms({ status: 'upcoming' }),
-        ]);
-
-        const toFrontend = (serviceProgram: any): Program => {
-          // Prioritize image_path, fall back to thumbnail_path, ensure we have a photo URL
-          const imagePath = serviceProgram.image_path || serviceProgram.thumbnail_path;
-          const photoUrl = getFileUrl(imagePath);
-          
-          // Log for debugging
-          if (!imagePath) {
-            logger.warn('Program has no image_path or thumbnail_path', { 
-              programId: serviceProgram.id,
-              programName: serviceProgram.name,
-              received: { image_path: serviceProgram.image_path, thumbnail_path: serviceProgram.thumbnail_path }
-            });
-          }
-          
-          return {
-            id: serviceProgram.id,
-            name: serviceProgram.name,
-            description: serviceProgram.description || '',
-            duration: serviceProgram.duration_weeks ? `${serviceProgram.duration_weeks} weeks` : '',
-            level: (serviceProgram as any).level || '',
-            icon: 'GraduationCap',
-            status: serviceProgram.status === 'active' ? 'active' : 'inactive',
-            startDate: serviceProgram.start_date || '',
-            endDate: serviceProgram.end_date || '',
-            photoUrl,
-            imagePath: serviceProgram.image_path,
-            createdAt: serviceProgram.created_at || '',
-            updatedAt: serviceProgram.updated_at || '',
-            instructor: serviceProgram.instructor || undefined,
-          };
-        };
-
-        const activePrograms: Program[] = (activeRes?.data || [])
-          .map(toFrontend)
-          .filter((p: Program) => p.status === 'active' && !isProgramExpired(p.endDate));
-
-        const upcomingPrograms: Program[] = (upcomingRes?.data || [])
-          .map(toFrontend);
-
-        // Merge, deduplicate by id, active first then upcoming
-        const seen = new Set<string>();
-        const merged: Program[] = [];
-        for (const p of [...activePrograms, ...upcomingPrograms]) {
-          if (!seen.has(p.id)) { seen.add(p.id); merged.push(p); }
-        }
-
-        logger.debug('LandingPage programs loaded', { count: merged.length });
-        setPrograms(merged);
-      } catch (error) {
-        logger.error('Failed to fetch programs', { error });
-        setPrograms([]);
-      }
-    };
-    fetchPrograms();
-  }, []);
+  // All programs from context (synced with backend)
+  const allDisplayPrograms = contextPrograms;
 
   const fadeInUp: any = {
     hidden: { opacity: 0, y: 30 },
@@ -281,19 +195,6 @@ export default function LandingPage() {
   const heroBackground = cmsSettings.appearance.heroBackground
     ? getFileUrl(cmsSettings.appearance.heroBackground)
     : '';
-  const defaultThumbnailUrl = getFileUrl('/uploads/images/defaults/blank-thumbnail.webp');
-
-  const markProgramImageBroken = (programId: string) => {
-    setBrokenProgramImages(prev => (prev[programId] ? prev : { ...prev, [programId]: true }));
-  };
-
-  const hasProgramImage = (program: Program) =>
-    !!program.photoUrl && program.photoUrl !== defaultThumbnailUrl && !brokenProgramImages[program.id];
-
-  // Split programs: currently running vs upcoming
-  const runningPrograms = programs.filter(p => p.status === 'active' && !isProgramUpcoming(p.startDate));
-  const upcomingPrograms = programs.filter(p => isProgramUpcoming(p.startDate));
-  const allDisplayPrograms = programs;
 
   return (
     <div className="min-h-screen bg-background">
@@ -494,120 +395,98 @@ export default function LandingPage() {
             </motion.p>
           </motion.div>
 
-          {/* Upcoming programs with enhanced glassmorphism */}
-          {upcomingPrograms.length > 0 && (
+          {/* All programs display - card layout matching ProgramsPage */}
+          {allDisplayPrograms.length > 0 && (
             <motion.div
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: '-60px' }}
               variants={fadeInUp}
-              className="mb-12 md:mb-16"
             >
-              <div className="mb-6 md:mb-8 flex items-center gap-4">
-                <motion.div
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="flex items-center gap-2 md:gap-3 rounded-full border border-amber-500/40 bg-gradient-to-r from-amber-500/25 to-orange-500/25 px-4 py-2 md:px-6 md:py-3 backdrop-blur-2xl shadow-xl shadow-amber-500/20"
-                >
-                  <Star className="size-4 md:size-5 text-amber-500 fill-amber-500" />
-                  <span className="text-xs md:text-sm font-extrabold text-amber-600 dark:text-amber-400">Upcoming Programs</span>
-                </motion.div>
-                <div className="h-px flex-1 bg-gradient-to-r from-amber-500/30 to-transparent" />
-              </div>
-
-              <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {upcomingPrograms.map((program, i) => {
-                  const IconComponent = getIconComponent(program.icon);
-                  const days = daysUntilStart(program.startDate);
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {allDisplayPrograms.map((program, i) => {
+                  const isUpcoming = isProgramUpcoming(program.startDate);
+                  const days = isUpcoming ? daysUntilStart(program.startDate) : 0;
+                  
                   return (
                     <motion.div
                       key={program.id}
-                      initial={{ opacity: 0, y: 30 }}
+                      initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
-                      transition={{ delay: i * 0.1, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-                      whileHover={{ y: -8, scale: 1.02 }}
+                      transition={{ delay: (i % 6) * 0.05, duration: 0.4 }}
                     >
-                      <Card
-                        className="group relative h-full cursor-pointer overflow-hidden border-2 border-amber-200/70 bg-gradient-to-br from-amber-50/90 to-white/90 backdrop-blur-2xl transition-all hover:border-amber-400/90 hover:shadow-2xl hover:shadow-amber-500/30 dark:border-amber-800/50 dark:from-amber-950/40 dark:to-slate-900/90"
+                      <Card 
+                        className="group h-full cursor-pointer hover:shadow-lg transition-all duration-200"
                         onClick={() => setSelectedProgram(program)}
                       >
-                        {/* Animated gradient overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/0 via-orange-500/0 to-amber-500/0 opacity-0 transition-opacity group-hover:opacity-15" />
-                        
-                        {/* Countdown badge with glow */}
-                        <div className="absolute right-3 top-3 md:right-4 md:top-4 z-10">
-                          <motion.div
-                            animate={{ scale: [1, 1.05, 1] }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                          >
-                            <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xl shadow-amber-500/60 text-xs md:text-sm font-bold">
-                              {days === 0 ? '🔥 Starts Today!' : days === 1 ? '⚡ Tomorrow' : `⏰ In ${days} days`}
-                            </Badge>
-                          </motion.div>
-                        </div>
-
-                        {hasProgramImage(program) && (
-                          <div className="relative h-40 md:h-48 w-full overflow-hidden">
-                            <img
-                              src={program.photoUrl}
-                              alt={program.name}
-                              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-                              onError={() => markProgramImageBroken(program.id)}
+                        {/* Program Image/Photo */}
+                        {program.photoUrl && (
+                          <div className="w-full h-48 rounded-t-lg overflow-hidden border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
+                            <img 
+                              src={`${program.photoUrl}?t=${Date.now()}`}
+                              alt={program.name} 
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                           </div>
                         )}
                         
-                        {!hasProgramImage(program) && (
-                          <div className="relative flex h-40 md:h-48 items-center justify-center overflow-hidden bg-gradient-to-br from-amber-500/20 to-orange-500/10">
-                            <div className="relative z-10 flex items-center justify-center">
-                              <div className="flex size-24 md:size-32 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-2xl shadow-amber-500/40">
-                                <IconComponent className="size-12 md:size-16 text-white" />
-                              </div>
+                        <CardHeader>
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex size-12 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                              <GraduationCap className="size-6 text-primary" />
                             </div>
+                            {isUpcoming && (
+                              <Badge className="bg-blue-500 text-white text-xs font-bold flex-shrink-0">
+                                {days === 0 ? '🔥 Today' : days === 1 ? '⚡ Tomorrow' : `⏰ ${days}d`}
+                              </Badge>
+                            )}
                           </div>
-                        )}
-
-                        <CardHeader className="pb-3">
-                          {!hasProgramImage(program) && (
-                            <motion.div
-                              whileHover={{ rotate: 360 }}
-                              transition={{ duration: 0.6 }}
-                              className="mb-4 flex size-14 md:size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-xl shadow-amber-500/40"
-                            >
-                              <IconComponent className="size-7 md:size-8 text-white" />
-                            </motion.div>
-                          )}
-                          <CardTitle className="text-lg md:text-xl leading-snug">{program.name}</CardTitle>
-                          {program.duration && (
-                            <Badge variant="outline" className="w-fit border-amber-400 text-amber-700 dark:border-amber-700 dark:text-amber-400 font-semibold">{program.duration}</Badge>
-                          )}
+                          <CardTitle className="line-clamp-2">{program.name}</CardTitle>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <Badge variant="default">{program.status}</Badge>
+                            {program.duration && (
+                              <Badge variant="outline">{program.duration}</Badge>
+                            )}
+                          </div>
                         </CardHeader>
-
-                        <CardContent className="space-y-3 md:space-y-4 pt-0">
-                          <CardDescription className="line-clamp-2 text-sm leading-relaxed">{program.description}</CardDescription>
-                          <div className="space-y-2 border-t border-amber-200/60 pt-3 dark:border-amber-800/60">
-                            {program.startDate && (
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <Calendar className="size-3.5 md:size-4 text-amber-500" />
-                                <span>Starts {formatDate(program.startDate)}</span>
+                        
+                        <CardContent>
+                          <CardDescription className="line-clamp-2 mb-4">{program.description}</CardDescription>
+                          
+                          <div className="space-y-2 text-sm mb-4">
+                            {program.level && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Level:</span>
+                                <span className="font-medium">{program.level}</span>
                               </div>
                             )}
-                            {program.endDate && (
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <Clock className="size-3.5 md:size-4 text-muted-foreground" />
-                                <span>Ends {formatDate(program.endDate)}</span>
+                            {program.instructor && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Instructor:</span>
+                                <span className="font-medium truncate">{program.instructor}</span>
+                              </div>
+                            )}
+                            {program.startDate && (
+                              <div className="flex items-center justify-between border-t pt-2">
+                                <span className="text-muted-foreground">Starts:</span>
+                                <span className="font-medium">{formatDate(program.startDate)}</span>
                               </div>
                             )}
                           </div>
+
+                          {/* View Button */}
                           <Button
                             variant="outline"
                             size="sm"
-                            className="w-full gap-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 transition-all hover:from-amber-100 hover:to-orange-100 hover:shadow-lg font-semibold dark:border-amber-700 dark:from-amber-950/50 dark:to-orange-950/50 dark:text-amber-400"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedProgram(program);
+                            }}
+                            className="w-full"
                           >
+                            <Eye className="size-4 mr-2" />
                             View Details
-                            <ArrowRight className="size-4" />
                           </Button>
                         </CardContent>
                       </Card>
@@ -616,135 +495,6 @@ export default function LandingPage() {
                 })}
               </div>
             </motion.div>
-          )}
-
-          {/* Active / all programs with glassmorphism */}
-          {runningPrograms.length > 0 && (
-            <div>
-              {upcomingPrograms.length > 0 && (
-                <div className="mb-6 md:mb-8 flex items-center gap-4">
-                  <motion.div
-                    animate={{ scale: [1, 1.05, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="flex items-center gap-2 md:gap-3 rounded-full border border-green-500/40 bg-gradient-to-r from-green-500/25 to-emerald-500/25 px-4 py-2 md:px-6 md:py-3 backdrop-blur-2xl shadow-xl shadow-green-500/20"
-                  >
-                    <div className="size-2 md:size-2.5 rounded-full bg-green-500 animate-pulse shadow-lg shadow-green-500/60" />
-                    <span className="text-xs md:text-sm font-extrabold text-green-600 dark:text-green-400">Active Programs</span>
-                  </motion.div>
-                  <div className="h-px flex-1 bg-gradient-to-r from-green-500/30 to-transparent" />
-                </div>
-              )}
-
-              <motion.div
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-60px' }}
-                variants={staggerContainer}
-                className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-              >
-                {runningPrograms.map((program, i) => {
-                  const IconComponent = getIconComponent(program.icon);
-                  return (
-                    <motion.div
-                      key={program.id}
-                      variants={fadeInUp}
-                      custom={i}
-                      whileHover={{ y: -10, scale: 1.02 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <Card
-                        className="group relative h-full cursor-pointer overflow-hidden border-2 border-border/60 bg-gradient-to-br from-white/90 to-slate-50/90 backdrop-blur-2xl transition-all hover:border-primary/60 hover:shadow-2xl hover:shadow-primary/20 dark:from-slate-900/90 dark:to-slate-950/90"
-                        onClick={() => setSelectedProgram(program)}
-                      >
-                        {/* Animated gradient overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-secondary/0 to-primary/0 opacity-0 transition-opacity group-hover:opacity-15" />
-                        
-                        {hasProgramImage(program) ? (
-                          <div className="relative h-48 md:h-56 w-full overflow-hidden">
-                            <img
-                              src={program.photoUrl}
-                              alt={program.name}
-                              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 group-hover:rotate-1"
-                              onError={() => markProgramImageBroken(program.id)}
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-                            {/* Active badge with glow */}
-                            <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4">
-                              <motion.div
-                                animate={{ scale: [1, 1.05, 1] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                              >
-                                <Badge className="border border-green-400/60 bg-green-500/95 text-white backdrop-blur-sm shadow-xl shadow-green-500/60 font-bold">
-                                  <div className="mr-2 size-1.5 md:size-2 rounded-full bg-white animate-pulse" />
-                                  Active Now
-                                </Badge>
-                              </motion.div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="relative flex h-48 md:h-56 items-center justify-center overflow-hidden bg-gradient-to-br from-primary/20 to-primary/10 dark:from-primary/30 dark:to-primary/10">
-                            <div className="relative z-10 flex items-center justify-center">
-                              <div className="flex size-32 md:size-40 items-center justify-center rounded-3xl bg-gradient-to-br from-primary to-primary/80 shadow-2xl shadow-primary/40">
-                                <IconComponent className="size-16 md:size-20 text-white" />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        <CardHeader className="pb-3">
-                          {!hasProgramImage(program) && (
-                            <motion.div
-                              whileHover={{ rotate: 360 }}
-                              transition={{ duration: 0.6 }}
-                              className="mb-3 flex size-12 md:size-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary shadow-xl shadow-primary/40"
-                            >
-                              <IconComponent className="size-6 md:size-7 text-white" />
-                            </motion.div>
-                          )}
-                          <CardTitle className="text-lg md:text-xl leading-snug">{program.name}</CardTitle>
-                          <div className="flex flex-wrap gap-2 pt-2">
-                            {program.duration && <Badge className="bg-gradient-to-r from-primary to-secondary text-white font-semibold">{program.duration}</Badge>}
-                            {program.level && <Badge variant="outline" className="border-primary/40 font-semibold">{program.level}</Badge>}
-                          </div>
-                        </CardHeader>
-
-                        <CardContent className="space-y-3 md:space-y-4 pt-0">
-                          <CardDescription className="line-clamp-3 text-sm leading-relaxed">
-                            {program.description}
-                          </CardDescription>
-
-                          {(program.startDate || program.endDate) && (
-                            <div className="space-y-2 border-t border-border/60 pt-3">
-                              {program.startDate && (
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <Calendar className="size-3.5 md:size-4 text-primary" />
-                                  <span>Started {formatDate(program.startDate)}</span>
-                                </div>
-                              )}
-                              {program.endDate && (
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <Clock className="size-3.5 md:size-4 text-secondary" />
-                                  <span>Ends {formatDate(program.endDate)}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full gap-2 border-primary/40 bg-gradient-to-r from-primary/10 to-secondary/10 transition-all hover:from-primary/15 hover:to-secondary/15 hover:border-primary/60 hover:shadow-lg group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary font-semibold"
-                          >
-                            Learn More
-                            <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
-              </motion.div>
-            </div>
           )}
 
           {/* Empty state */}

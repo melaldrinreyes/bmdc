@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import { api, getFileUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { usePrograms } from '../contexts/ProgramsContext';
 import programService from '../services/programService';
 import sessionService, { CreateSessionData, ProgramSession } from '../services/sessionService';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -71,6 +72,7 @@ export default function ProgramFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthReady } = useAuth();
+  const { syncPrograms } = usePrograms();
   const [currentStep, setCurrentStep] = useState(1);
   const [programLoaded, setProgramLoaded] = useState(!id);
 
@@ -321,6 +323,9 @@ export default function ProgramFormPage() {
         toast.success('Program added successfully!');
       }
 
+      // Sync programs context so landing page and other pages see the changes
+      await syncPrograms();
+      
       navigate('/programs');
     } catch (error: any) {
       toast.error(error?.message || 'Failed to save program');

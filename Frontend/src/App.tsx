@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { ProgramsProvider } from './contexts/ProgramsContext';
 import { Toaster } from './components/ui/sonner';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useEffect } from 'react';
@@ -85,10 +86,11 @@ export default function App() {
     <ThemeProvider>
       <ErrorBoundary>
         <AuthProvider>
-          <BrowserRouter>
-            <OfflineIndicator />
-            <PWAInstallPrompt />
-            <OverdueNotification />
+          <ProgramsProvider>
+            <BrowserRouter>
+              <OfflineIndicator />
+              <PWAInstallPrompt />
+              <OverdueNotification />
             <Routes>
               {/* ── Public Routes ── */}
               <Route path="/" element={<LandingPage />} />
@@ -136,7 +138,8 @@ export default function App() {
               <Route path="*" element={<Navigate to="/404" replace />} />
             </Routes>
             <Toaster />
-          </BrowserRouter>
+            </BrowserRouter>
+          </ProgramsProvider>
         </AuthProvider>
       </ErrorBoundary>
     </ThemeProvider>

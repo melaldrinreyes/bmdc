@@ -73,16 +73,20 @@ export const GET = withErrorHandler(
     // First segment is the tenant_id embedded in the URL
     const [fileTenantId, ...rest] = segments;
 
-    // ── 2. Check if this is a public CMS asset ──────────────────────────────
-    // CMS images (logo, hero background) and their thumbnails should be publicly accessible
+    // ── 2. Check if this is a public asset ──────────────────────────────────
+    // Public assets that don't require authentication:
+    //   - CMS images (logo, hero background) and their thumbnails
+    //   - Program images (photos) and their thumbnails - publicly discoverable
     const isPublicCMSAsset = rest[0] === 'images' && rest[1] === 'cms';
+    const isPublicProgramAsset = rest[0] === 'images' && rest[1] === 'programs';
+    const isPublicAsset = isPublicCMSAsset || isPublicProgramAsset;
 
-    // ── 3. Auth (skip for public CMS assets) ────────────────────────────────
+    // ── 3. Auth (skip for public assets) ────────────────────────────────
     let userTenantId: string | undefined;
     let userId: string | undefined;
     let isSuperAdmin = false;
 
-    if (!isPublicCMSAsset) {
+    if (!isPublicAsset) {
       const ctxResult = requireTenantContext(request);
       if (ctxResult.error) return ctxResult.error;
       ({ tenantId: userTenantId, userId, isSuperAdmin } = ctxResult.context);
@@ -96,10 +100,10 @@ export const GET = withErrorHandler(
     }
 
     // ── 5. Tenant isolation check (Req 15.3, 15.4) ───────────────────────────
-    // Skip check for public CMS assets
+    // Skip check for public assets (CMS/programs) - they are discoverable by design
     const filePath = `/uploads/${fileTenantId}/${rest.join('/')}`;
 
-    if (!isPublicCMSAsset && !isSuperAdmin && userTenantId && fileTenantId.toLowerCase() !== userTenantId.toLowerCase()) {
+    if (!isPublicAsset && !isSuperAdmin && userTenantId && fileTenantId.toLowerCase() !== userTenantId.toLowerCase()) {
       // Log the cross-tenant access attempt (Req 15.7)
       logger.warn('[FILE_ACCESS] Cross-tenant access attempt blocked', {
         userId,
@@ -137,7 +141,7 @@ export const GET = withErrorHandler(
           userId: userId || 'public',
           userTenantId: userTenantId || 'none',
           filePath,
-          isPublicCMSAsset,
+          isPublicAsset,
           timestamp: new Date().toISOString(),
         });
         return notFoundResponse('File not found');
@@ -150,7 +154,7 @@ export const GET = withErrorHandler(
       userId: userId || 'public',
       tenantId: userTenantId || fileTenantId,
       filePath,
-      isPublicCMSAsset,
+      isPublicAsset,
       sizeBytes: fileBuffer.length,
       timestamp: new Date().toISOString(),
     });

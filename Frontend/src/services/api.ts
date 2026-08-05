@@ -7,7 +7,11 @@ import { logger } from '../utils/logger';
  */
 
 // API Base URL - Change this to your backend URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (
+  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:3003/api'  // In development (localhost), explicitly target backend port 3003
+    : `${window.location.protocol}//${window.location.host}/api`  // In production, use same origin
+);
 
 /**
  * Create Axios Instance
@@ -19,17 +23,17 @@ const apiClient: AxiosInstance = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  withCredentials: true, // Enable cookies for authentication
+  withCredentials: true, // Enable credentials for all requests so cookies are sent and received
 });
 
 /**
  * Request Interceptor
- * Add authentication token to all requests
+ * Log requests in development
  */
 apiClient.interceptors.request.use(
   (config) => {
     // Auth is handled via the HttpOnly cookie set by the backend (SEC-4).
-    // We do NOT read from localStorage or set Authorization headers here.
+    // withCredentials is enabled globally above.
 
     // Log request in development
     if (import.meta.env.DEV) {

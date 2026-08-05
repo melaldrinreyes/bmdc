@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { usePrograms } from '../contexts/ProgramsContext';
 import DashboardLayout from '../components/DashboardLayout';
 import ProgramDetailsModal from '../components/ProgramDetailsModal';
 import { Button } from '../components/ui/button';
@@ -62,8 +63,10 @@ const getIconComponent = (iconName: string) => {
 
 export default function ProgramsPage() {
   const { hasPermission, user, isAuthReady } = useAuth();
+  const { programs: contextPrograms, loading: contextLoading, refetch: contextRefetch } = usePrograms();
   const navigate = useNavigate();  
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,56 +74,24 @@ export default function ProgramsPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [tablePage, setTablePage] = useState(1);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const tableRowsPerPage = 10;
   const location = useLocation();
 
-  // Fetch programs from backend
+  // Sync context programs to local state
+  useEffect(() => {
+    if (contextPrograms.length > 0) {
+      setPrograms(contextPrograms);
+      setLoading(contextLoading);
+    }
+  }, [contextPrograms, contextLoading]);
+
+  // Auto-refetch when navigating back to this page
   useEffect(() => {
     if (!isAuthReady) {
       return;
     }
-
-    fetchPrograms();
-  }, [location.pathname, isAuthReady]); // Refetch when navigating back to this page
-
-  const fetchPrograms = async () => {
-    try {
-      setLoading(true);
-      const response = await programService.getPrograms({
-        search: searchTerm || undefined,
-        status: filterStatus !== 'all' ? filterStatus : undefined
-      });
-      // Handle API response structure
-      const programsArray = response?.data || response || [];
-      const mappedPrograms: Program[] = programsArray.map((serviceProgram: any) => {
-        // Store raw thumbnail/image path without cache-buster
-        // Cache-buster will be added at render time to ensure it's always fresh
-        let photoUrl = getThumbnailUrl(serviceProgram.thumbnail_path || serviceProgram.image_path);
-        return {
-          id: serviceProgram.id,
-          name: serviceProgram.name,
-          description: serviceProgram.description || '',
-          duration: serviceProgram.duration_weeks ? serviceProgram.duration_weeks.toString() : '',
-          level: (serviceProgram as any).level || '',
-          icon: 'GraduationCap',
-          status: serviceProgram.status === 'active' ? 'active' : 'inactive',
-          startDate: serviceProgram.start_date || '',
-          endDate: serviceProgram.end_date || '',
-          photoUrl,
-          createdAt: serviceProgram.created_at || '',
-          updatedAt: serviceProgram.updated_at || ''
-        };
-      });
-      setPrograms(mappedPrograms);
-    } catch (error) {
-      logger.error('Failed to fetch programs', { error });
-      toast.error('Failed to load programs');
-      setPrograms([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    contextRefetch();
+  }, [location.pathname, isAuthReady, contextRefetch]);
 
   // Add cache-buster to image URLs at render time (not fetch time)
   // This ensures images bypass browser cache when the component re-renders
@@ -133,9 +104,9 @@ export default function ProgramsPage() {
   // Refetch when filters change
   useEffect(() => {
     if (!loading) {
-      fetchPrograms();
+      contextRefetch();
     }
-  }, [searchTerm, filterStatus]);
+  }, [searchTerm, filterStatus, contextRefetch]);
 
   const handleEdit = (program: Program) => {
     navigate(`/programs/${program.id}/edit`);
@@ -146,7 +117,7 @@ export default function ProgramsPage() {
 
     try {
       await programService.deleteProgram(selectedProgram.id);
-      await fetchPrograms(); // Refresh the list
+      await contextRefetch(); // Refresh from context
       setDeleteDialogOpen(false);
       setSelectedProgram(null);
       toast.success('Program deleted successfully');
