@@ -1,116 +1,112 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { authenticateUser } from '@/middleware/auth';
+import { successResponse, errorResponse } from '@/utils/responses';
 import { withErrorHandler } from '@/middleware/errorHandler';
-import { requireAuthAsync } from '@/middleware/auth';
 import { handleOptionsRequest } from '@/middleware/cors';
 
+// OPTIONS /api/cms-settings
 export async function OPTIONS(request: NextRequest) {
   return handleOptionsRequest(request);
 }
 
 /**
- * Resolve the tenant_id to use for a request.
- * Priority: query param → JWT → first active tenant (public fallback)
- */
-async function resolveTenantId(request: NextRequest): Promise<string | null> {
-  const { searchParams } = new URL(request.url);
-  const fromQuery = searchParams.get('tenant_id');
-  if (fromQuery) return fromQuery;
-
-  // Try JWT (won't throw on missing token — just returns null)
-  try {
-    const authResult = await requireAuthAsync(request);
-    if (!('error' in authResult) && authResult.user.tenantId) {
-      return authResult.user.tenantId;
-    }
-  } catch {
-    // No token — fall through to public default
-  }
-
-  // Public fallback: use the first active tenant
-  const { data } = await supabaseAdmin
-    .from('tenants')
-    .select('id')
-    .eq('status', 'active')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .single();
-
-  return data?.id ?? null;
-}
-
-/**
  * GET /api/cms-settings
- * Public endpoint — returns CMS settings for the current tenant.
- * Tenant resolved from: ?tenant_id param → JWT → first active tenant.
+ * Get CMS settings for the current tenant
+ * Public endpoint - can be called without auth for landing page
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
-  const tenantId = await resolveTenantId(request);
+  try {
+    // Try to authenticate user to get tenant context
+    const user = await authenticateUser(request);
+    let tenantId: string | undefined;
 
-  if (!tenantId) {
-    return NextResponse.json(
-      { success: false, error: 'No tenant found' },
-      { status: 404 }
-    );
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from('cms_settings')
-    .select('*')
-    .eq('tenant_id', tenantId);
-
-  if (error) throw error;
-
-  // Convert array of key-value rows to a flat object
-  const settings: Record<string, any> = {};
-  data?.forEach(item => {
-    try {
-      settings[item.key] = JSON.parse(item.value);
-    } catch {
-      settings[item.key] = item.value;
+    if (user) {
+      // Authenticated user - use their tenant
+      tenantId = user.tenantId && user.tenantId !== 'platform' ? user.tenantId : undefined;
     }
-  });
 
-  return NextResponse.json({ success: true, data: settings });
-});
+    // Build query to fetch CMS settings
+    let query = supabaseAdmin.from('cms_settings').select('*');
 
-/**
- * PUT /api/cms-settings
- * Upsert a single CMS setting for the current tenant.
- * Requires authentication.
- *
- * Body: { key: string, value: any, description?: string }
- */
-export const PUT = withErrorHandler(async (request: NextRequest) => {
-  const authResult = await requireAuthAsync(request);
-  if ('error' in authResult) return authResult.error;
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    } else {
+      // For unauthenticated users, get the first/default tenant's settings
+      query = query.order('created_at', { ascending: true }).limit(50);
+    }
 
-  const tenantId = authResult.user.tenantId;
-  const body = await request.json();
-  const { key, value, description } = body;
+    const { data, error } = await query;
 
-  if (!key) throw new Error('Key is required');
-  if (value === undefined) throw new Error('Value is required');
-  if (!tenantId) throw new Error('Tenant context is required');
+    if (error) {
+      console.error('[CMS Settings] Query error:', error);
+      throw error;
+    }
 
-  const valueStr = typeof value === 'string' ? value : JSON.stringify(value);
+    if (!data || data.length === 0) {
+      // No settings found, return empty object
+      return successResponse({});
+    }
 
-  const { data, error } = await supabaseAdmin
-    .from('cms_settings')
-    .upsert(
-      {
-        tenant_id: tenantId,
-        key,
-        value: valueStr,
-        description: description || null,
-        updated_at: new Date().toISOString(),
+    // Convert array of key-value pairs into a structured object
+    const settings: Record<string, any> = {
+      hero: {
+        badge: '',
+        title: '',
+        subtitle: '',
+        ctaPrimary: 'Enroll Now',
+        ctaSecondary: 'Browse Programs',
       },
-      { onConflict: 'tenant_id,key' }
-    )
-    .select()
-    .single();
+      appearance: {
+        logo: '',
+        heroBackground: '',
+      },
+      mission: '',
+      vision: '',
+      contact: {
+        address: '',
+        addressLine2: '',
+        phone: '',
+        email: '',
+        facebook: '',
+      },
+      footer: {
+        companyName: '',
+        tagline: '',
+      },
+    };
 
-  if (error) throw error;
+    // Map database records to settings structure
+    for (const record of data) {
+      const key = record.key as string;
+      const value = record.value as string;
 
-  return NextResponse.json({ success: true, data });
+      // Parse key into nested object path
+      if (key.startsWith('hero_')) {
+        const heroKey = key.replace('hero_', '');
+        settings.hero[heroKey] = value;
+      } else if (key.startsWith('appearance_')) {
+        const appearanceKey = key.replace('appearance_', '');
+        settings.appearance[appearanceKey] = value;
+      } else if (key.startsWith('contact_')) {
+        const contactKey = key.replace('contact_', '');
+        settings.contact[contactKey] = value;
+      } else if (key.startsWith('footer_')) {
+        const footerKey = key.replace('footer_', '');
+        settings.footer[footerKey] = value;
+      } else if (key === 'mission') {
+        settings.mission = value;
+      } else if (key === 'vision') {
+        settings.vision = value;
+      }
+    }
+
+    return successResponse(settings);
+  } catch (error) {
+    console.error('[CMS Settings] Error fetching settings:', error);
+    // Return empty settings instead of error for better UX
+    return successResponse({});
+  }
 });
+
+

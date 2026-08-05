@@ -17,6 +17,7 @@ export async function OPTIONS(request: NextRequest) {
  * Requires authentication.
  *
  * Body: { settings: Record<string, any> }
+ * Flattens nested objects into key-value pairs (e.g., hero.title -> hero_title)
  */
 export const POST = withErrorHandler(async (request: NextRequest) => {
   const authResult = await requireAuthAsync(request);
@@ -26,16 +27,33 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   if (!tenantId) throw new Error('Tenant context is required');
 
   const body = await request.json();
-  const { settings } = body;
+  const settings = body.settings || body;
 
   if (!settings || typeof settings !== 'object') {
     throw new Error('Settings object is required');
   }
 
-  const upsertData = Object.entries(settings).map(([key, value]) => ({
+  // Flatten nested settings object into key-value pairs
+  const flattenSettings = (obj: Record<string, any>, prefix = ''): Array<[string, string]> => {
+    const result: Array<[string, string]> = [];
+    for (const [key, val] of Object.entries(obj)) {
+      if (typeof val === 'object' && !Array.isArray(val) && val !== null) {
+        result.push(...flattenSettings(val, `${prefix}${key}_`));
+      } else {
+        const fullKey = prefix ? `${prefix}${key}` : key;
+        result.push([fullKey, String(val || '')]);
+      }
+    }
+    return result;
+  };
+
+  const flatSettings = flattenSettings(settings);
+  
+  const upsertData = flatSettings.map(([key, value]) => ({
     tenant_id: tenantId,
     key,
-    value: typeof value === 'string' ? value : JSON.stringify(value),
+    value,
+    description: key,
     updated_at: new Date().toISOString(),
   }));
 
