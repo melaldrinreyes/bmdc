@@ -58,8 +58,22 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       employment_status: body.employment_status,
     });
     
-    const validatedData = traineeRegistrationSchema.parse(body);
-    console.log('[Registration] Validation passed');
+    let validatedData;
+    try {
+      validatedData = traineeRegistrationSchema.parse(body);
+      console.log('[Registration] Validation passed');
+    } catch (validationError: any) {
+      console.error('[Registration] Schema validation failed:', {
+        errors: validationError.errors?.map((e: any) => ({
+          path: e.path.join('.'),
+          message: e.message,
+          code: e.code,
+          received: e.received,
+          expected: e.expected,
+        })),
+      });
+      throw validationError;
+    }
 
     // Get tenant_id from the program being applied to
     const { data: program, error: programError } = await supabaseAdmin
@@ -89,19 +103,17 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   } catch (error: any) {
     // Handle validation errors from Zod
     if (error.name === 'ZodError') {
-      console.error('[Registration] Validation error details:', error.errors.map((e: any) => ({
+      const validationErrors = error.errors.map((e: any) => ({
         field: e.path.join('.') || 'root',
         message: e.message,
         code: e.code,
-      })));
+        received: e.received,
+      }));
+      console.error('[Registration] Validation error details:', validationErrors);
       return Response.json(
         {
           error: 'Validation failed',
-          details: error.errors.map((e: any) => ({
-            field: e.path.join('.') || 'root',
-            message: e.message,
-            code: e.code,
-          })),
+          details: validationErrors,
         },
         { status: 422 }
       );

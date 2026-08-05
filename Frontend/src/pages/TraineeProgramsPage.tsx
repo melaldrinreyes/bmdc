@@ -142,7 +142,7 @@ export default function TraineeProgramsPage() {
 
       // Submit a pending registration (application) to the chosen program
       // using the trainee's existing profile data
-      await registrationService.submitRegistration({
+      const registrationData = {
         username:               trainee.qr_code || `trainee_${trainee.id.slice(0, 8)}`,
         email:                  trainee.email,
         password:               '',          // empty — trainee already has an account
@@ -161,11 +161,15 @@ export default function TraineeProgramsPage() {
         educational_attainment: trainee.educational_attainment,
         course:                 trainee.course || '',
         year_graduated:         trainee.year_graduated || '',
-        classification:         trainee.classification || '',
+        classification:         trainee.classification || 'Unemployed', // Ensure non-empty for validation
         disability:             trainee.disability || null,
         employment_status:      trainee.employment_status,
         program_id:             selectedProgram.id,
-      });
+      };
+
+      console.log('[TraineeProgramsPage] Submitting registration with data:', registrationData);
+
+      await registrationService.submitRegistration(registrationData);
 
       toast.success('Application submitted!', {
         description: `Your application for "${selectedProgram.name}" has been submitted for staff review.`,
