@@ -286,12 +286,18 @@ export class RegistrationService {
   /**
    * Get trainee's own registrations (for trainee-only access)
    */
-  async getTraineeRegistrations(email: string): Promise<PendingRegistration[]> {
-    const { data, error } = await supabaseAdmin
+  async getTraineeRegistrations(email: string, tenantId?: string): Promise<PendingRegistration[]> {
+    let query = supabaseAdmin
       .from('pending_registrations')
       .select('*, program:programs(id, name, description, start_date, end_date, status)')
-      .eq('email', email.toLowerCase())
-      .order('created_at', { ascending: false });
+      .eq('email', email.toLowerCase());
+
+    // If tenantId is provided, scope to that tenant
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       this.throwIfPendingRegistrationsMissing(error);

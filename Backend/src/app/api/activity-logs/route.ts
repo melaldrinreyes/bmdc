@@ -15,6 +15,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
   if ('error' in authResult) return authResult.error;
   
+  const user = authResult.user;
   const { searchParams } = new URL(request.url);
   const user_id = searchParams.get('user_id') || undefined;
   const entity_type = searchParams.get('entity_type') || undefined;
@@ -22,10 +23,15 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const start_date = searchParams.get('start_date') || undefined;
   const end_date = searchParams.get('end_date') || undefined;
   const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
-  const tenant_id = searchParams.get('tenant_id') || undefined;
+  let tenant_id = searchParams.get('tenant_id') || undefined;
   
   // Determine if user is super_admin
-  const isSuperAdmin = authResult.user.role === 'super_admin';
+  const isSuperAdmin = user.role === 'super_admin';
+  
+  // Tenant isolation: non-super-admins must only see their own tenant's logs
+  if (!isSuperAdmin) {
+    tenant_id = user.tenantId;
+  }
   
   const logs = await activityLogService.getAllLogs({
     user_id,
