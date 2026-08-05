@@ -14,7 +14,11 @@ export async function OPTIONS(request: NextRequest) {
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const authResult = await requireRoleAsync(request, ['local_admin', 'staff_inventory_manager', 'staff_training_coordinator']);
   if ('error' in authResult) return authResult.error;
-  const context = authResult.context;
+  
+  // Build context from authenticated user
+  const { tenantId, role, userId } = authResult.user;
+  const isSuperAdmin = role === 'super_admin';
+  const context = { tenantId, isSuperAdmin, userId, role };
 
   const { searchParams } = new URL(request.url);
   const category = searchParams.get('category') || undefined;

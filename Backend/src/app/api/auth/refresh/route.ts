@@ -55,7 +55,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   const { data: user, error } = await supabaseAdmin
     .from('users')
-    .select('id, email, username, role')
+    .select('id, email, username, role, tenant_id')
     .eq('id', rotated.userId)
     .single();
 
@@ -63,7 +63,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     return unauthorizedResponse('User not found');
   }
 
-  const token = generateToken({ userId: user.id, email: user.email, role: user.role });
+  const token = generateToken({ userId: user.id, email: user.email, role: user.role, tenantId: user.tenant_id });
 
   const isProduction = process.env.NODE_ENV === 'production';
   const response = NextResponse.json({

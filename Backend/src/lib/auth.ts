@@ -21,9 +21,9 @@ export const comparePassword = async (
   return bcrypt.compare(password, hashedPassword);
 };
 
-export const generateToken = (payload: JWTPayload): string => {
+export const generateToken = (payload: Partial<Omit<JWTPayload, 'jti' | 'iat' | 'exp'>> & { userId: string; email: string; role: string }): string => {
   const jti = crypto.randomBytes(16).toString('hex');
-  return jwt.sign({ ...payload, jti }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
+  return jwt.sign({ ...payload, jti } as JWTPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
 };
 
 export const generateOpaqueToken = (bytes: number = 32): string => {

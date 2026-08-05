@@ -85,19 +85,34 @@ export class RegistrationService {
    * @param isExistingTrainee Whether this is an existing trainee applying to a new program (optional)
    */
   async submitRegistration(data: TraineeRegistrationInput, tenantId: string, isExistingTrainee: boolean = false): Promise<PendingRegistration> {
+    console.log('[RegistrationService] submitRegistration called with:', {
+      email: data.email,
+      username: data.username,
+      isExistingTrainee,
+      tenantId,
+    });
+
+    // For existing trainees, only check for pending registrations (not approved ones)
+    // since they already have approved registrations from their initial signup
+    const pendingStatusFilter = isExistingTrainee ? ['pending'] : ['pending', 'approved'];
+    
+    console.log('[RegistrationService] Checking for existing pending registrations with statuses:', pendingStatusFilter);
+    
     // Check for duplicate email in pending_registrations
     const { data: existingPending, error: existingPendingError } = await supabaseAdmin
       .from('pending_registrations')
       .select('id, status')
       .eq('email', data.email.toLowerCase())
       .eq('tenant_id', tenantId)
-      .in('status', ['pending', 'approved'])
+      .in('status', pendingStatusFilter)
       .maybeSingle();
 
     if (existingPendingError && existingPendingError.code !== 'PGRST116') {
       this.throwIfPendingRegistrationsMissing(existingPendingError);
       throw existingPendingError;
     }
+
+    console.log('[RegistrationService] Existing pending registration found:', existingPending);
 
     if (existingPending) {
       if (existingPending.status === 'approved') {
@@ -121,33 +136,38 @@ export class RegistrationService {
       }
     }
 
-    // Check if username is taken
-    const { data: existingUsername } = await supabaseAdmin
-      .from('users')
-      .select('id')
-      .eq('username', data.username)
-      .maybeSingle();
+    // Only check if username is taken if this is NOT an existing trainee
+    // Existing trainees are reusing their existing username
+    if (!isExistingTrainee) {
+      const { data: existingUsername } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('username', data.username)
+        .maybeSingle();
 
-    if (existingUsername) {
-      throw new Error('This username is already taken. Please choose another.');
+      if (existingUsername) {
+        throw new Error('This username is already taken. Please choose another.');
+      }
     }
 
-    // Check for pending registration with same username
-    const { data: existingPendingUsername, error: existingPendingUsernameError } = await supabaseAdmin
-      .from('pending_registrations')
-      .select('id')
-      .eq('username', data.username)
-      .eq('status', 'pending')
-      .eq('tenant_id', tenantId)
-      .maybeSingle();
+    // Check for pending registration with same username (for new trainees only)
+    if (!isExistingTrainee) {
+      const { data: existingPendingUsername, error: existingPendingUsernameError } = await supabaseAdmin
+        .from('pending_registrations')
+        .select('id')
+        .eq('username', data.username)
+        .eq('status', 'pending')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
 
-    if (existingPendingUsernameError && existingPendingUsernameError.code !== 'PGRST116') {
-      this.throwIfPendingRegistrationsMissing(existingPendingUsernameError);
-      throw existingPendingUsernameError;
-    }
+      if (existingPendingUsernameError && existingPendingUsernameError.code !== 'PGRST116') {
+        this.throwIfPendingRegistrationsMissing(existingPendingUsernameError);
+        throw existingPendingUsernameError;
+      }
 
-    if (existingPendingUsername) {
-      throw new Error('This username is already pending approval for another registration.');
+      if (existingPendingUsername) {
+        throw new Error('This username is already pending approval for another registration.');
+      }
     }
 
     // ========== NEW: Check for incomplete enrollment in trainees table ==========
@@ -173,7 +193,7 @@ export class RegistrationService {
       });
 
       throw new ConflictError(
-        `You have not finished taking your current program yet. Please complete or drop your current program before applying to a new one.`
+        'You are already enrolled in an incomplete program. Please complete or drop your current program before applying to a new one.'
       );
     }
     // ========== END: Incomplete enrollment check ==========

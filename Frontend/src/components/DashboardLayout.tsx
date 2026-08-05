@@ -231,6 +231,13 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
         return item;
       });
 
+  // ENSURE trainee navigation is always complete
+  const ensuredNavigation = user?.role === 'trainee' && filteredNavigation.length > 0
+    ? filteredNavigation.length === traineeNavigation.length
+      ? filteredNavigation
+      : traineeNavigation // Fallback to full trainee navigation if filtered version is incomplete
+    : filteredNavigation;
+
   const filteredMobileNavigation = user?.role === 'trainee'
     ? traineeeMobileNavigation
     : user?.role === 'super_admin'
@@ -239,6 +246,13 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
         if (item.href === '/super-admin') return false;
         return !item.permission || hasPermission(item.permission);
       });
+
+  // ENSURE trainee mobile navigation is always complete
+  const ensuredMobileNavigation = user?.role === 'trainee' && filteredMobileNavigation.length > 0
+    ? filteredMobileNavigation.length === traineeeMobileNavigation.length
+      ? filteredMobileNavigation
+      : traineeeMobileNavigation // Fallback to full trainee mobile navigation if filtered version is incomplete
+    : filteredMobileNavigation;
 
   return (
     <div className="min-h-screen bg-background ds-shell">
@@ -267,7 +281,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
           {/* Navigation */}
           <nav className="flex flex-1 flex-col">
             <ul className="flex flex-1 flex-col gap-y-1">
-              {filteredNavigation.map((item) => (
+              {ensuredNavigation.map((item) => (
                 <li key={item.name}>
                   {item.children ? (
                     // Dropdown menu item
@@ -399,7 +413,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
             <nav className="px-4 py-4">
               <ul className="space-y-1">
                 {user?.role === 'trainee' ? (
-                  filteredMobileNavigation.map((item) => (
+                  ensuredMobileNavigation.map((item) => (
                     <li key={item.name}>
                       <Link
                         to={item.href!}
@@ -418,10 +432,10 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
                 ) : (
                   // Admin/staff: show nav items with Settings group visually separated
                   (() => {
-                    const mainItems = filteredMobileNavigation.filter(i =>
+                    const mainItems = ensuredMobileNavigation.filter(i =>
                       !['Activity Logs','Data Quality','Non-Attendance Dates','Website Content','Account'].includes(i.name)
                     );
-                    const settingsItems = filteredMobileNavigation.filter(i =>
+                    const settingsItems = ensuredMobileNavigation.filter(i =>
                       ['Activity Logs','Data Quality','Non-Attendance Dates','Website Content','Account'].includes(i.name)
                     );
                     return (
@@ -638,7 +652,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
       {/* Mobile Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card lg:hidden">
         <nav className="flex items-center justify-around px-2 py-2">
-          {filteredMobileNavigation.slice(0, 5).map((item) => (
+          {ensuredMobileNavigation.slice(0, 5).map((item) => (
             <Link
               key={item.name}
               to={item.href!}

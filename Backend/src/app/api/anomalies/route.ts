@@ -15,7 +15,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const authResult = await requireAuthAsync(request);
   if ('error' in authResult) return authResult.error;
 
-  const { tenantId, isSuperAdmin } = authResult.user;
+  const tenantId = authResult.user.tenantId;
+  const isSuperAdmin = authResult.user.role === 'super_admin';
   
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type') || undefined;
