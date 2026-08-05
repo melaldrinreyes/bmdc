@@ -22,6 +22,9 @@ export interface CreateTenantData {
   contactEmail: string;
   contactPhone?: string;
   address?: string;
+  adminEmail: string;
+  adminUsername: string;
+  adminPassword: string;
 }
 
 export interface PlatformSummary {
@@ -65,9 +68,12 @@ class TenantService {
   async createTenant(data: CreateTenantData): Promise<Tenant> {
     const response = await api.post<Tenant>('/admin/tenants', {
       name: data.name,
-      contact_email: data.contactEmail,
-      contact_phone: data.contactPhone,
+      contactEmail: data.contactEmail,
+      contactPhone: data.contactPhone,
       address: data.address,
+      adminEmail: data.adminEmail,
+      adminUsername: data.adminUsername,
+      adminPassword: data.adminPassword,
     });
     return response.data;
   }

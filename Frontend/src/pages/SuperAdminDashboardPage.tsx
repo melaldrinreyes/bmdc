@@ -149,6 +149,7 @@ export default function SuperAdminDashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<CreateTenantData>({
     name: '', contactEmail: '', contactPhone: '', address: '',
+    adminEmail: '', adminUsername: '', adminPassword: '',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
@@ -260,6 +261,16 @@ export default function SuperAdminDashboardPage() {
     if (!formData.contactEmail.trim()) errors.contactEmail = 'Contact email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail))
       errors.contactEmail = 'Invalid email address';
+    if (!formData.adminEmail.trim()) errors.adminEmail = 'Admin email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.adminEmail))
+      errors.adminEmail = 'Invalid admin email address';
+    if (!formData.adminUsername.trim()) errors.adminUsername = 'Admin username is required';
+    else if (!/^[a-zA-Z0-9_-]+$/.test(formData.adminUsername))
+      errors.adminUsername = 'Username can only contain letters, numbers, hyphens, and underscores';
+    if (!formData.adminPassword.trim()) errors.adminPassword = 'Admin password is required';
+    else if (formData.adminPassword.length < 8) errors.adminPassword = 'Password must be at least 8 characters';
+    else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/.test(formData.adminPassword))
+      errors.adminPassword = 'Password must contain uppercase, lowercase, number, and special character';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -302,7 +313,7 @@ export default function SuperAdminDashboardPage() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', contactEmail: '', contactPhone: '', address: '' });
+    setFormData({ name: '', contactEmail: '', contactPhone: '', address: '', adminEmail: '', adminUsername: '', adminPassword: '' });
     setFormErrors({});
   };
 
@@ -712,7 +723,7 @@ export default function SuperAdminDashboardPage() {
 
       {/* ── Create Tenant Dialog ── */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-96 max-w-[90vw]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Building2 className="size-5" />
@@ -769,6 +780,53 @@ export default function SuperAdminDashboardPage() {
                 onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
                 placeholder="Municipal Hall, Bongabong, Oriental Mindoro"
               />
+            </div>
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-sm font-semibold mb-3">Default Local Admin Account</h3>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-email">Admin Email *</Label>
+              <Input
+                id="admin-email"
+                type="email"
+                value={formData.adminEmail}
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, adminEmail: e.target.value }));
+                  if (formErrors.adminEmail) setFormErrors(prev => ({ ...prev, adminEmail: '' }));
+                }}
+                placeholder="admin@lgu.gov.ph"
+                className={formErrors.adminEmail ? 'border-destructive' : ''}
+              />
+              {formErrors.adminEmail && <p className="text-xs text-destructive">{formErrors.adminEmail}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-username">Admin Username *</Label>
+              <Input
+                id="admin-username"
+                value={formData.adminUsername}
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, adminUsername: e.target.value }));
+                  if (formErrors.adminUsername) setFormErrors(prev => ({ ...prev, adminUsername: '' }));
+                }}
+                placeholder="admin_username"
+                className={formErrors.adminUsername ? 'border-destructive' : ''}
+              />
+              {formErrors.adminUsername && <p className="text-xs text-destructive">{formErrors.adminUsername}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-password">Admin Password *</Label>
+              <Input
+                id="admin-password"
+                type="password"
+                value={formData.adminPassword}
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, adminPassword: e.target.value }));
+                  if (formErrors.adminPassword) setFormErrors(prev => ({ ...prev, adminPassword: '' }));
+                }}
+                placeholder="Password123!"
+                className={formErrors.adminPassword ? 'border-destructive' : ''}
+              />
+              {formErrors.adminPassword && <p className="text-xs text-destructive">{formErrors.adminPassword}</p>}
             </div>
           </div>
           <DialogFooter>
