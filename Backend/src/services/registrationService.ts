@@ -78,8 +78,13 @@ export class RegistrationService {
 
   /**
    * Submit a new trainee registration request (public - no auth)
+   * Can be used for both new registrations and existing trainees applying to new programs
+   * 
+   * @param data Registration/application data
+   * @param tenantId Tenant ID from the program
+   * @param isExistingTrainee Whether this is an existing trainee applying to a new program (optional)
    */
-  async submitRegistration(data: TraineeRegistrationInput, tenantId: string): Promise<PendingRegistration> {
+  async submitRegistration(data: TraineeRegistrationInput, tenantId: string, isExistingTrainee: boolean = false): Promise<PendingRegistration> {
     // Check for duplicate email in pending_registrations
     const { data: existingPending, error: existingPendingError } = await supabaseAdmin
       .from('pending_registrations')
@@ -101,15 +106,19 @@ export class RegistrationService {
       throw new Error('A registration request with this email is already pending review.');
     }
 
-    // Check if email already has an active user account
-    const { data: existingUser } = await supabaseAdmin
-      .from('users')
-      .select('id')
-      .eq('email', data.email.toLowerCase())
-      .maybeSingle();
+    // Only check for existing user account if this is NOT an existing trainee applying to a new program
+    // Existing trainees already have user accounts, so we don't need to check
+    if (!isExistingTrainee) {
+      // Check if email already has an active user account
+      const { data: existingUser } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('email', data.email.toLowerCase())
+        .maybeSingle();
 
-    if (existingUser) {
-      throw new Error('An account with this email already exists. Please log in.');
+      if (existingUser) {
+        throw new Error('An account with this email already exists. Please log in.');
+      }
     }
 
     // Check if username is taken

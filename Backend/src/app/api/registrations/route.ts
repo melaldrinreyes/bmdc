@@ -90,7 +90,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       );
     }
 
-    const registration = await registrationService.submitRegistration(validatedData, program.tenant_id);
+    const registration = await registrationService.submitRegistration(
+      validatedData, 
+      program.tenant_id,
+      body.isExistingTrainee === true // Pass the flag if it exists in the request
+    );
 
     // Omit password_hash from response
     const { ...safeReg } = registration as any;

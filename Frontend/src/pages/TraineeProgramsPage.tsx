@@ -169,7 +169,7 @@ export default function TraineeProgramsPage() {
 
       console.log('[TraineeProgramsPage] Submitting registration with data:', registrationData);
 
-      await registrationService.submitRegistration(registrationData);
+      await registrationService.submitRegistration(registrationData, true); // true = existing trainee
 
       toast.success('Application submitted!', {
         description: `Your application for "${selectedProgram.name}" has been submitted for staff review.`,

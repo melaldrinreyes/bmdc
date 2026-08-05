@@ -69,9 +69,13 @@ export interface SubmitRegistrationData {
 class RegistrationService {
   /**
    * Submit a new trainee self-registration (public)
+   * Can be used for both new trainee signups and existing trainees applying to new programs
    */
-  async submitRegistration(data: SubmitRegistrationData): Promise<PendingRegistration> {
-    const response = await api.post<PendingRegistration>('/registrations', data);
+  async submitRegistration(data: SubmitRegistrationData, isExistingTrainee: boolean = false): Promise<PendingRegistration> {
+    const response = await api.post<PendingRegistration>('/registrations', {
+      ...data,
+      isExistingTrainee, // Pass flag to indicate if this is an existing trainee
+    });
     return response.data;
   }
 
