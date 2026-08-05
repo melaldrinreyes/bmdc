@@ -85,10 +85,15 @@ export const PUT = withErrorHandler(async (request: NextRequest) => {
 
   const userId = authResult.user.userId;
 
-  // Get trainee_id from trainee_accounts table
+  // Get trainee_id and tenant_id from trainee_accounts table
   const { data: traineeAccount, error: accountError } = await supabaseAdmin
     .from('trainee_accounts')
-    .select('trainee_id')
+    .select(`
+      trainee_id,
+      trainees (
+        tenant_id
+      )
+    `)
     .eq('user_id', userId)
     .single();
 
@@ -97,6 +102,7 @@ export const PUT = withErrorHandler(async (request: NextRequest) => {
   }
 
   const traineeId = traineeAccount.trainee_id;
+  const tenantId = (traineeAccount.trainees as any)?.tenant_id;
   const body = await request.json();
 
   // Only allow the fields defined in updateTraineeSelfSchema (SEC-10)
@@ -129,7 +135,9 @@ export const PUT = withErrorHandler(async (request: NextRequest) => {
     'update',
     'trainee',
     traineeId,
-    { fields: Object.keys(updateData), changes: updateData }
+    { fields: Object.keys(updateData), changes: updateData },
+    undefined,
+    tenantId
   );
 
   return successResponse(updatedTrainee, 'Profile updated successfully');

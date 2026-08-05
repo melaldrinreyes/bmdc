@@ -21,10 +21,10 @@ const createUserSchema = z.object({
 
 /**
  * GET /api/users
- * Get all users (admin only)
+ * Get all users in the tenant (local_admin only)
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
-  const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
+  const authResult = await requireRoleAsync(request, ['local_admin']);
   if ('error' in authResult) return authResult.error;
 
   const user = authResult.user;
@@ -32,57 +32,36 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const search = searchParams.get('search') || '';
   const role = searchParams.get('role');
 
-  // For non-super-admins: get users from their tenant via users_tenants junction table
-  if (user.role !== 'super_admin') {
-    let query = supabaseAdmin
-      .from('users_tenants')
-      .select('user_id')
-      .eq('tenant_id', user.tenantId);
+  // Local admins can only see users in their tenant
+  let query = supabaseAdmin
+    .from('users_tenants')
+    .select('user_id')
+    .eq('tenant_id', user.tenantId);
 
-    const { data: tenantUsers, error: tenantError } = await query;
-    if (tenantError) throw tenantError;
+  const { data: tenantUsers, error: tenantError } = await query;
+  if (tenantError) throw tenantError;
 
-    const userIds = tenantUsers?.map(ut => ut.user_id) || [];
-    
-    if (userIds.length === 0) {
-      return successResponse([]);
-    }
-
-    let userQuery = supabaseAdmin
-      .from('users')
-      .select('id, email, username, role, created_at, updated_at')
-      .in('id', userIds)
-      .order('created_at', { ascending: false });
-
-    if (search) {
-      userQuery = userQuery.or(`email.ilike.%${search}%,username.ilike.%${search}%`);
-    }
-
-    if (role) {
-      userQuery = userQuery.eq('role', role);
-    }
-
-    const { data: users, error } = await userQuery;
-    if (error) throw error;
-
-    return successResponse(users);
+  const userIds = tenantUsers?.map(ut => ut.user_id) || [];
+  
+  if (userIds.length === 0) {
+    return successResponse([]);
   }
 
-  // For super-admins: get all users
-  let query = supabaseAdmin
+  let userQuery = supabaseAdmin
     .from('users')
     .select('id, email, username, role, created_at, updated_at')
+    .in('id', userIds)
     .order('created_at', { ascending: false });
 
   if (search) {
-    query = query.or(`email.ilike.%${search}%,username.ilike.%${search}%`);
+    userQuery = userQuery.or(`email.ilike.%${search}%,username.ilike.%${search}%`);
   }
 
   if (role) {
-    query = query.eq('role', role);
+    userQuery = userQuery.eq('role', role);
   }
 
-  const { data: users, error } = await query;
+  const { data: users, error } = await userQuery;
   if (error) throw error;
 
   return successResponse(users);
@@ -90,10 +69,10 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
 /**
  * POST /api/users
- * Create a new user (admin only)
+ * Create a new user (local_admin only - within their tenant)
  */
 export const POST = withErrorHandler(async (request: NextRequest) => {
-  const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
+  const authResult = await requireRoleAsync(request, ['local_admin']);
   if ('error' in authResult) return authResult.error;
 
   const user = authResult.user;
@@ -126,7 +105,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   if (error) throw error;
 
-  // Assign user to tenant via users_tenants junction table
+  // Assign user to the local admin's tenant via users_tenants junction table
   const { error: tenantLinkError } = await supabaseAdmin
     .from('users_tenants')
     .insert({

@@ -85,10 +85,12 @@ ON CONFLICT (id) DO UPDATE SET
   updated_at = NOW();
 
 -- =============================================================================
--- 3. USERS_TENANTS — associate all users with BMDC tenant
+-- 3. USERS_TENANTS — associate non-super-admin users with BMDC tenant
+--    Note: Super Admin (00000000-0000-0000-0001-000000000001) is intentionally
+--    NOT included here to maintain platform-wide access.
 -- =============================================================================
 INSERT INTO users_tenants (user_id, tenant_id, is_primary, created_at) VALUES
-  ('00000000-0000-0000-0001-000000000001', '00000000-0000-0000-0000-000000000001', true, NOW()),
+  -- Super admin omitted: they use 'platform' as sentinel tenant ID
   ('00000000-0000-0000-0001-000000000002', '00000000-0000-0000-0000-000000000001', true, NOW()),
   ('00000000-0000-0000-0001-000000000003', '00000000-0000-0000-0000-000000000001', true, NOW()),
   ('00000000-0000-0000-0001-000000000004', '00000000-0000-0000-0000-000000000001', true, NOW()),

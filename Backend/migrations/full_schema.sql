@@ -582,7 +582,8 @@ ALTER TABLE enrollments        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE certificates       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE activity_logs      ENABLE ROW LEVEL SECURITY;
+-- Activity logs are filtered by application code, not RLS
+-- ALTER TABLE activity_logs      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feature_flags      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE extension_requests ENABLE ROW LEVEL SECURITY;
 

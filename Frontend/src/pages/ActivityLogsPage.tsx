@@ -177,13 +177,15 @@ export default function ActivityLogsPage() {
   // Get unique tenants for filter (Super Admin only)
   const uniqueTenants = useMemo(() => {
     if (!isSuperAdmin) return [];
-    const tenants = new Set(
-      allLogs
-        .filter(log => log.tenantName)
-        .map(log => ({ id: log.tenantId, name: log.tenantName }))
-    );
-    return Array.from(tenants)
-      .filter((t): t is { id: string; name: string } => !!t.id && !!t.name)
+    // Use Map to deduplicate by tenant ID
+    const tenantMap = new Map<string, string>();
+    allLogs.forEach(log => {
+      if (log.tenantId && log.tenantName) {
+        tenantMap.set(log.tenantId, log.tenantName);
+      }
+    });
+    return Array.from(tenantMap.entries())
+      .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [allLogs, isSuperAdmin]);
 

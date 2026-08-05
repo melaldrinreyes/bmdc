@@ -21,28 +21,26 @@ const updateUserSchema = z.object({
 
 /**
  * GET /api/users/[id]
- * Get a single user by ID (admin only)
+ * Get a single user by ID (local_admin only - from their tenant)
  */
 export const GET = withErrorHandler(async (request: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) => {
-  const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
+  const authResult = await requireRoleAsync(request, ['local_admin']);
   if ('error' in authResult) return authResult.error;
 
   const user = authResult.user;
   const resolvedParams = await params;
   const { id } = resolvedParams;
 
-  // For non-super-admins: verify user belongs to their tenant
-  if (user.role !== 'super_admin') {
-    const { data: userTenant } = await supabaseAdmin
-      .from('users_tenants')
-      .select('user_id')
-      .eq('tenant_id', user.tenantId)
-      .eq('user_id', id)
-      .maybeSingle();
+  // Local admins can only access users in their tenant
+  const { data: userTenant } = await supabaseAdmin
+    .from('users_tenants')
+    .select('user_id')
+    .eq('tenant_id', user.tenantId)
+    .eq('user_id', id)
+    .maybeSingle();
 
-    if (!userTenant) {
-      return errorResponse('User not found', 404);
-    }
+  if (!userTenant) {
+    return errorResponse('User not found', 404);
   }
 
   const { data: foundUser, error } = await supabaseAdmin
@@ -58,10 +56,10 @@ export const GET = withErrorHandler(async (request: NextRequest, { params }: { p
 
 /**
  * PUT /api/users/[id]
- * Update a user (admin only)
+ * Update a user (local_admin only - users in their tenant)
  */
 export const PUT = withErrorHandler(async (request: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) => {
-  const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
+  const authResult = await requireRoleAsync(request, ['local_admin']);
   if ('error' in authResult) return authResult.error;
   
   const authUser = authResult.user;
@@ -70,18 +68,16 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: { p
   const body = await request.json();
   const validatedData = updateUserSchema.parse(body);
 
-  // For non-super-admins: verify user belongs to their tenant
-  if (authUser.role !== 'super_admin') {
-    const { data: userTenant } = await supabaseAdmin
-      .from('users_tenants')
-      .select('user_id')
-      .eq('tenant_id', authUser.tenantId)
-      .eq('user_id', id)
-      .maybeSingle();
+  // Local admins can only update users in their tenant
+  const { data: userTenant } = await supabaseAdmin
+    .from('users_tenants')
+    .select('user_id')
+    .eq('tenant_id', authUser.tenantId)
+    .eq('user_id', id)
+    .maybeSingle();
 
-    if (!userTenant) {
-      return errorResponse('User not found', 404);
-    }
+  if (!userTenant) {
+    return errorResponse('User not found', 404);
   }
 
   // Check if user exists
@@ -126,28 +122,26 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: { p
 
 /**
  * DELETE /api/users/[id]
- * Delete a user (admin only)
+ * Delete a user (local_admin only - users in their tenant)
  */
 export const DELETE = withErrorHandler(async (request: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) => {
-  const authResult = await requireRoleAsync(request, ['local_admin', 'super_admin']);
+  const authResult = await requireRoleAsync(request, ['local_admin']);
   if ('error' in authResult) return authResult.error;
 
   const authUser = authResult.user;
   const resolvedParams = await params;
   const { id } = resolvedParams;
 
-  // For non-super-admins: verify user belongs to their tenant
-  if (authUser.role !== 'super_admin') {
-    const { data: userTenant } = await supabaseAdmin
-      .from('users_tenants')
-      .select('user_id')
-      .eq('tenant_id', authUser.tenantId)
-      .eq('user_id', id)
-      .maybeSingle();
+  // Local admins can only delete users in their tenant
+  const { data: userTenant } = await supabaseAdmin
+    .from('users_tenants')
+    .select('user_id')
+    .eq('tenant_id', authUser.tenantId)
+    .eq('user_id', id)
+    .maybeSingle();
 
-    if (!userTenant) {
-      return errorResponse('User not found', 404);
-    }
+  if (!userTenant) {
+    return errorResponse('User not found', 404);
   }
 
   const { data: existingUser } = await supabaseAdmin

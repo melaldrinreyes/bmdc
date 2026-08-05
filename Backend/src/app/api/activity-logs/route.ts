@@ -28,21 +28,13 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   // Determine if user is super_admin
   const isSuperAdmin = user.role === 'super_admin';
   
-  // Tenant isolation: non-super-admins must only see their own tenant's logs
+  // Tenant isolation: 
+  // - Super admins: bypass restrictions (can see all or filter by optional tenant_id)
+  // - Local admins: MUST see only their own tenant's logs
   if (!isSuperAdmin) {
     tenant_id = user.tenantId;
   }
-  
-  console.log('[Activity Logs API] Fetching logs with filters:', {
-    user_id,
-    entity_type,
-    action,
-    start_date,
-    end_date,
-    limit,
-    tenant_id,
-    is_super_admin: isSuperAdmin,
-  });
+  // For super admins, use the optional tenant_id from query params if provided
   
   const logs = await activityLogService.getAllLogs({
     user_id,
@@ -54,8 +46,6 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     tenant_id,
     is_super_admin: isSuperAdmin,
   });
-  
-  console.log('[Activity Logs API] Found', logs.length, 'logs');
   
   // Transform to camelCase for frontend
   const transformedLogs = logs.map(log => ({

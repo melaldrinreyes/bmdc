@@ -34,7 +34,22 @@ import { ListSkeleton, TableSkeleton } from '../components/LoadingSkeletons';
 interface User extends ApiUser {}
 
 export default function AccountManagementPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, hasPermission } = useAuth();
+  
+  // Only local admins can manage accounts
+  if (!hasPermission('canManageAccounts')) {
+    return (
+      <DashboardLayout>
+        <div className="container mx-auto py-16">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
+            <p className="text-muted-foreground">Only local admins can manage user accounts.</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState('accounts');
 
   // â”€â”€ Accounts state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

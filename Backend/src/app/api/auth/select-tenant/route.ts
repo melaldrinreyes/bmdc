@@ -110,7 +110,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const refresh = await authRecoveryService.issueRefreshToken(result.userId, { ip, userAgent });
 
   // ── Log successful tenant selection ─────────────────────────────────────
-  await activityLogService.logAction(result.userId, 'login', 'user', result.userId);
+  await activityLogService.logAction(result.userId, 'login', 'user', result.userId, undefined, undefined, validatedData.tenant_id);
 
   const refreshTokenMaxAge =
     Number(process.env.REFRESH_TOKEN_EXPIRES_DAYS || 14) * 24 * 60 * 60;

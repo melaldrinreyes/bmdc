@@ -123,7 +123,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   );
 
   // Log the partial authentication event
-  await activityLogService.logAction(user.id, 'login_tenant_selection_required', 'user', user.id);
+  // For tenant selection, use null/undefined as tenantId since no specific tenant is selected yet
+  await activityLogService.logAction(user.id, 'login_tenant_selection_required', 'user', user.id, undefined, undefined, undefined);
 
   return NextResponse.json({
     success: true,
@@ -167,7 +168,7 @@ async function buildLoginResponse(
   const refresh = await authRecoveryService.issueRefreshToken(user.id, { ip, userAgent });
 
   // Log successful login
-  await activityLogService.logAction(user.id, 'login', 'user', user.id);
+  await activityLogService.logAction(user.id, 'login', 'user', user.id, undefined, undefined, tenantId === 'platform' ? undefined : tenantId);
 
   const refreshTokenMaxAge =
     Number(process.env.REFRESH_TOKEN_EXPIRES_DAYS || 14) * 24 * 60 * 60;
