@@ -9,12 +9,20 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [isDark, setIsDark] = useState(() => {
-    const saved = localStorage.getItem('bmdc-theme');
-    return saved ? saved === 'dark' : false;
+    try {
+      const saved = localStorage.getItem('bmdc-theme');
+      return saved ? saved === 'dark' : false;
+    } catch {
+      return false;
+    }
   });
 
   useEffect(() => {
-    localStorage.setItem('bmdc-theme', isDark ? 'dark' : 'light');
+    try {
+      localStorage.setItem('bmdc-theme', isDark ? 'dark' : 'light');
+    } catch {
+      // Storage unavailable, continue without persistence
+    }
     if (isDark) {
       document.documentElement.classList.add('dark');
     } else {

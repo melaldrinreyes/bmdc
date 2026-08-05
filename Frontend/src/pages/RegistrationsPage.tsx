@@ -23,10 +23,6 @@ import { Skeleton } from '../components/ui/skeleton';
 import {
   FileText,
   Search,
-  CheckCircle2,
-  Clock,
-  XCircle,
-  Eye,
   Check,
   X,
   Loader,
@@ -155,19 +151,6 @@ export default function RegistrationsPage() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Clock className="size-4 text-amber-600" />;
-      case 'approved':
-        return <CheckCircle2 className="size-4 text-green-600" />;
-      case 'rejected':
-        return <XCircle className="size-4 text-red-600" />;
-      default:
-        return null;
-    }
-  };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -228,17 +211,19 @@ export default function RegistrationsPage() {
           </Select>
         </div>
 
-        {/* Registrations List */}
+        {/* Registrations Grid */}
         {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
               <Card key={i}>
-                <CardContent className="p-4">
-                  <div className="space-y-2">
-                    <Skeleton className="h-5 w-1/3" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-2/3" />
-                  </div>
+                <CardHeader>
+                  <Skeleton className="h-5 w-2/3" />
+                  <Skeleton className="h-4 w-1/2 mt-2" />
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
                 </CardContent>
               </Card>
             ))}
@@ -253,77 +238,83 @@ export default function RegistrationsPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {paginatedRegistrations.map((registration) => (
-              <Card key={registration.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-4">
+              <Card 
+                key={registration.id} 
+                className="group hover:shadow-lg transition-all cursor-pointer"
+                onClick={() => {
+                  setSelectedRegistration(registration);
+                  setViewDetailsOpen(true);
+                }}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div>
-                          <p className="font-semibold">
-                            {registration.first_name} {registration.last_name}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            @{registration.username}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <p>Email: {registration.email}</p>
-                        <p>Phone: {registration.phone}</p>
-                        <p>Program: <span className="font-medium text-foreground">{registration.program?.name}</span></p>
-                      </div>
-                      <div className="mt-3 flex items-center gap-2">
-                        {getStatusIcon(registration.status)}
-                        {getStatusBadge(registration.status)}
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(registration.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedRegistration(registration);
-                          setViewDetailsOpen(true);
-                        }}
-                      >
-                        <Eye className="size-4 mr-1" />
-                        View
-                      </Button>
-                      {registration.status === 'pending' && (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setSelectedRegistration(registration);
-                              setActionType('approve');
-                              setActionDialogOpen(true);
-                            }}
-                          >
-                            <Check className="size-4 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedRegistration(registration);
-                              setActionType('reject');
-                              setRejectionReason('');
-                              setActionDialogOpen(true);
-                            }}
-                          >
-                            <X className="size-4 mr-1" />
-                            Reject
-                          </Button>
-                        </>
-                      )}
+                      <CardTitle className="truncate">
+                        {registration.first_name} {registration.last_name}
+                      </CardTitle>
+                      <CardDescription className="text-xs mt-1">
+                        @{registration.username}
+                      </CardDescription>
                     </div>
                   </div>
+                  <div className="flex flex-wrap gap-2">
+                    {getStatusBadge(registration.status)}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Email</p>
+                      <p className="text-sm font-medium break-all truncate">{registration.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Phone</p>
+                      <p className="text-sm font-medium">{registration.phone}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Program</p>
+                      <p className="text-sm font-medium">{registration.program?.name}</p>
+                    </div>
+                    <div className="pt-2 border-t">
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(registration.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  {registration.status === 'pending' && (
+                    <div className="flex gap-2 mt-4" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          setSelectedRegistration(registration);
+                          setActionType('approve');
+                          setActionDialogOpen(true);
+                        }}
+                      >
+                        <Check className="size-4 mr-1" />
+                        Approve
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          setSelectedRegistration(registration);
+                          setActionType('reject');
+                          setRejectionReason('');
+                          setActionDialogOpen(true);
+                        }}
+                      >
+                        <X className="size-4 mr-1" />
+                        Reject
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -447,7 +438,7 @@ export default function RegistrationsPage() {
 
       {/* Action Dialog (Approve/Reject) */}
       <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-full max-w-sm">
           <DialogHeader>
             <DialogTitle>
               {actionType === 'approve' ? 'Approve Registration' : 'Reject Registration'}
@@ -478,21 +469,23 @@ export default function RegistrationsPage() {
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-2 flex-col-reverse sm:flex-row">
-            <Button
-              variant="outline"
-              onClick={() => setActionDialogOpen(false)}
-              disabled={processing}
-            >
-              Cancel
-            </Button>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
             <Button
               variant={actionType === 'approve' ? 'default' : 'destructive'}
               onClick={actionType === 'approve' ? handleApprove : handleReject}
               disabled={processing || (actionType === 'reject' && !rejectionReason.trim())}
+              className="w-full"
             >
               {processing && <Loader className="size-4 mr-2 animate-spin" />}
               {actionType === 'approve' ? 'Approve' : 'Reject'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setActionDialogOpen(false)}
+              disabled={processing}
+              className="w-full"
+            >
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

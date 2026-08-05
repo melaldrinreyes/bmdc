@@ -18,7 +18,7 @@ import {
   forbiddenResponse,
   notFoundResponse,
 } from '@/utils/responses';
-import { logAuditEvent } from '@/lib/auditLog';
+import { logConfigChange, AuditAction } from '@/lib/auditLog';
 
 const VALID_STATUSES = [
   'submitted',
@@ -77,13 +77,14 @@ export const PATCH = withErrorHandler(
 
     if (error) return errorResponse(`Failed to update request: ${error.message}`);
 
-    await logAuditEvent({
+    await logConfigChange({
       userId: context.userId,
-      action: 'extension_request.reviewed',
+      tenantId: existing.tenant_id,
+      action: AuditAction.CONFIG_TENANT_UPDATED,
       entityType: 'extension_request',
       entityId: id,
-      details: { previousStatus: existing.status, newStatus: status, tenantId: existing.tenant_id },
-      timestamp: new Date(),
+      details: { previousStatus: existing.status, newStatus: status },
+      request,
     });
 
     return successResponse(data, `Extension request ${status}`);

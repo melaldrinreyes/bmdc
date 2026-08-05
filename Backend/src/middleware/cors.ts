@@ -32,7 +32,14 @@ export function addCorsHeaders(
   response: NextResponse,
   origin?: string | null
 ): NextResponse {
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+  // In development, be more permissive to allow localhost:* origins
+  if (process.env.NODE_ENV === 'development' && origin && origin.startsWith('http://localhost')) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    response.headers.set('Access-Control-Allow-Methods', ALLOWED_METHODS.join(', '));
+    response.headers.set('Access-Control-Allow-Headers', ALLOWED_HEADERS.join(', '));
+    response.headers.set('Access-Control-Max-Age', '86400');
+  } else if (origin && ALLOWED_ORIGINS.includes(origin)) {
     response.headers.set('Access-Control-Allow-Origin', origin);
     response.headers.set('Access-Control-Allow-Credentials', 'true');
     response.headers.set('Access-Control-Allow-Methods', ALLOWED_METHODS.join(', '));

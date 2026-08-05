@@ -57,8 +57,12 @@ const DEFAULT_PERMISSIONS: Permission = {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [user, setUser] = useState<User | null>(() => {
-    const saved = sessionStorage.getItem('bmdc-user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = sessionStorage.getItem('bmdc-user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
 
   useEffect(() => {
@@ -89,12 +93,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
 
         setUser(userData);
-        sessionStorage.setItem('bmdc-user', JSON.stringify(userData));
+        try {
+          sessionStorage.setItem('bmdc-user', JSON.stringify(userData));
+        } catch {
+          // Storage quota exceeded or unavailable, continue without persistence
+          logger.warn('Failed to save user to sessionStorage');
+        }
       })
       .catch(() => {
         if (!mounted) return;
         setUser(null);
-        sessionStorage.removeItem('bmdc-user');
+        try {
+          sessionStorage.removeItem('bmdc-user');
+        } catch {
+          // Ignore storage errors on cleanup
+        }
       })
       .finally(() => {
         if (!mounted) return;
@@ -146,7 +159,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       setUser(userData);
-      sessionStorage.setItem('bmdc-user', JSON.stringify(userData));
+      try {
+        sessionStorage.setItem('bmdc-user', JSON.stringify(userData));
+      } catch {
+        logger.warn('Failed to save user to sessionStorage during login');
+      }
 
       authLogger.login(userData.name, userData.id, userData.role);
 
@@ -172,7 +189,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       setUser(userData);
-      sessionStorage.setItem('bmdc-user', JSON.stringify(userData));
+      try {
+        sessionStorage.setItem('bmdc-user', JSON.stringify(userData));
+      } catch {
+        logger.warn('Failed to save user to sessionStorage during tenant selection');
+      }
 
       authLogger.login(userData.name, userData.id, userData.role);
 
@@ -190,7 +211,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     await authService.logout();
     setUser(null);
-    sessionStorage.removeItem('bmdc-user');
+    try {
+      sessionStorage.removeItem('bmdc-user');
+    } catch {
+      // Ignore storage errors on logout
+    }
   };
 
   return (

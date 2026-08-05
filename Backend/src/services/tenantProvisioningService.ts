@@ -430,13 +430,14 @@ export async function createTenant(params: CreateTenantParams): Promise<CreatedT
   });
 
   // ── Step 9: Initialize default feature flags ─────────────────────────────
-  // Insert default feature flags for the new tenant (all disabled by default
-  // except inventory_management which is enabled per the default config).
+  // Insert default feature flags for the new tenant.
+  // Enabled by default: inventory_management, mobile_app_access
+  // Disabled by default: certificate_generation, qr_code_attendance, whatsapp_notifications, email_notifications
   const defaultFeatureFlags = [
     { tenant_id: tenant.id, feature_key: 'inventory_management', enabled: true },
     { tenant_id: tenant.id, feature_key: 'certificate_generation', enabled: false },
     { tenant_id: tenant.id, feature_key: 'qr_code_attendance', enabled: false },
-    { tenant_id: tenant.id, feature_key: 'mobile_app_access', enabled: false },
+    { tenant_id: tenant.id, feature_key: 'mobile_app_access', enabled: true },
     { tenant_id: tenant.id, feature_key: 'whatsapp_notifications', enabled: false },
     { tenant_id: tenant.id, feature_key: 'email_notifications', enabled: false },
   ];

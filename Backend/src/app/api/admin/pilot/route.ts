@@ -19,7 +19,7 @@ import { handleOptionsRequest } from '@/middleware/cors';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { successResponse, errorResponse, forbiddenResponse } from '@/utils/responses';
 import { invalidateFeatureFlagCache } from '@/lib/featureFlags';
-import { logAuditEvent } from '@/lib/auditLog';
+import { logConfigChange, AuditAction } from '@/lib/auditLog';
 
 /** All feature keys that can be toggled during pilot */
 const PILOT_FEATURE_KEYS = [
@@ -172,13 +172,14 @@ export const POST = withErrorHandler(
     // Invalidate cache for this tenant's feature flags
     invalidateFeatureFlagCache(tenant_id);
 
-    await logAuditEvent({
+    await logConfigChange({
       userId: context.userId,
-      action: 'pilot.feature_flags_configured',
+      tenantId: tenant_id,
+      action: AuditAction.CONFIG_FEATURE_FLAG,
       entityType: 'tenant',
       entityId: tenant_id,
       details: { phase, features: flagsToSet, tenantName: tenant.name },
-      timestamp: new Date(),
+      request,
     });
 
     return successResponse(

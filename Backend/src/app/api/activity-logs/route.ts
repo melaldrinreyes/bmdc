@@ -53,7 +53,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     userAgent: log.user_agent,
     createdAt: log.created_at,
     // Cross-tenant fields
-    tenantId: log.tenant_id,
+    tenantId: (log as any).tenant_id,
     tenantName: (log as any).tenantName,
     scope: (log as any).scope,
   }));

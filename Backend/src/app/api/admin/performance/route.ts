@@ -29,7 +29,7 @@ import {
   DEFAULT_POOL_CONFIG,
   SLOW_QUERY_THRESHOLD_MS,
 } from '@/lib/connectionPool';
-import { logAuditEvent } from '@/lib/auditLog';
+import { logSecurityEvent, AuditAction } from '@/lib/auditLog';
 
 // ---------------------------------------------------------------------------
 // In-process API response time tracking
@@ -105,11 +105,12 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     .sort((a, b) => b.requestCount - a.requestCount)
     .slice(0, 20);
 
-  await logAuditEvent({
+  await logSecurityEvent({
     userId: context.userId,
-    action: 'performance.dashboard_viewed',
+    action: AuditAction.SECURITY_SUSPICIOUS,
     entityType: 'system',
-    timestamp: new Date(),
+    details: { event: 'performance_dashboard_viewed' },
+    request,
   });
 
   return successResponse({
@@ -156,12 +157,12 @@ export const DELETE = withErrorHandler(async (request: NextRequest) => {
   cacheClear();
   resetPoolMetrics();
 
-  await logAuditEvent({
+  await logSecurityEvent({
     userId: context.userId,
-    action: 'performance.cache_cleared',
+    action: AuditAction.CONFIG_FEATURE_FLAG,
     entityType: 'system',
-    details: { clearedBy: context.userId },
-    timestamp: new Date(),
+    details: { event: 'cache_cleared' },
+    request,
   });
 
   return successResponse({ message: 'Cache cleared and pool metrics reset' });

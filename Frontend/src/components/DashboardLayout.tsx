@@ -70,6 +70,7 @@ const navigation: NavItem[] = [
   { name: 'Equipments', href: '/items', icon: Package, permission: 'canManageItems' },
   { name: 'Borrowing', href: '/lendings', icon: FileText, permission: 'canManageLendings' },
   { name: 'Programs', href: '/programs', icon: GraduationCap, permission: 'canManagePrograms' },
+  { name: 'Registrations', href: '/registrations', icon: ClipboardList, permission: 'canManageTrainees' },
   { name: 'Reports', href: '/reports', icon: BarChart3, permission: 'canViewReports' },
   { 
     name: 'Settings', 
@@ -91,6 +92,7 @@ const mobileNavigation: NavItem[] = [
   { name: 'Equipments', href: '/items', icon: Package, permission: 'canManageItems' },
   { name: 'Borrowing', href: '/lendings', icon: FileText, permission: 'canManageLendings' },
   { name: 'Programs', href: '/programs', icon: GraduationCap, permission: 'canManagePrograms' },
+  { name: 'Registrations', href: '/registrations', icon: ClipboardList, permission: 'canManageTrainees' },
   { name: 'Reports', href: '/reports', icon: BarChart3, permission: 'canViewReports' },
   { name: 'Activity Logs', href: '/activity-logs', icon: Activity, permission: 'canViewActivityLogs' },
   { name: 'Data Quality', href: '/anomalies', icon: AlertTriangle, permission: 'canViewAnomalies' },
@@ -104,12 +106,14 @@ const traineeNavigation: NavItem[] = [
   { name: 'My Dashboard', href: '/trainee/dashboard', icon: LayoutDashboard },
   { name: 'My Profile', href: '/trainee/profile', icon: User },
   { name: 'Programs', href: '/trainee/programs', icon: GraduationCap },
+  { name: 'My Applications', href: '/trainee/applications', icon: ClipboardList },
 ];
 
 const traineeeMobileNavigation: NavItem[] = [
   { name: 'My Dashboard', href: '/trainee/dashboard', icon: LayoutDashboard },
   { name: 'My Profile', href: '/trainee/profile', icon: User },
   { name: 'Programs', href: '/trainee/programs', icon: GraduationCap },
+  { name: 'My Applications', href: '/trainee/applications', icon: ClipboardList },
 ];
 
 // Super Admin navigation — platform-level only, no tenant-scoped pages
@@ -138,6 +142,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
   const [cmsSettings, setCmsSettings] = useState<any>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [pendingRegistrationCount, setPendingRegistrationCount] = useState(0);
 
   // Helper function to get value from CMS settings
   const getValue = (setting: any): string => {
@@ -155,6 +160,25 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
       setCmsSettings(JSON.parse(savedSettings));
     }
   }, []);
+
+  // Fetch pending registrations count (for staff/admins only)
+  useEffect(() => {
+    if ((user?.role === 'local_admin' || user?.role === 'staff_training_coordinator' || user?.role === 'super_admin') && user?.tenantId) {
+      const fetchPendingCount = async () => {
+        try {
+          const api = await import('../services/api').then(m => m.default);
+          const response = await api.get('/registrations/pending-count');
+          setPendingRegistrationCount(response.data?.count || 0);
+        } catch (error) {
+          // Silently fail if endpoint doesn't exist
+        }
+      };
+      fetchPendingCount();
+      // Refresh every 30 seconds
+      const interval = setInterval(fetchPendingCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const openLogoutDialog = () => {
     setLogoutDialogOpen(true);
@@ -288,14 +312,21 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
                     // Regular menu item
                     <Link
                       to={item.href!}
-                      className={`ds-nav-item flex items-center gap-x-3 rounded-lg px-3 py-2 transition-colors ${
+                      className={`ds-nav-item flex items-center justify-between gap-x-3 rounded-lg px-3 py-2 transition-colors ${
                         isActive(item.href!)
                           ? 'is-active bg-primary text-primary-foreground'
                           : 'text-foreground hover:bg-muted'
                       }`}
                     >
-                      <item.icon className="size-5 shrink-0" />
-                      {item.name}
+                      <div className="flex items-center gap-x-3">
+                        <item.icon className="size-5 shrink-0" />
+                        {item.name}
+                      </div>
+                      {item.name === 'Registrations' && pendingRegistrationCount > 0 && (
+                        <Badge variant="destructive" className="text-xs">
+                          {pendingRegistrationCount}
+                        </Badge>
+                      )}
                     </Link>
                   )}
                 </li>
@@ -599,7 +630,7 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmLogout}>Log out</AlertDialogAction>
+            <AlertDialogAction onClick={confirmLogout} className="bg-red-600 hover:bg-red-700">Log out</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -248,6 +248,7 @@ export class RegistrationService {
     const { data: trainee, error: traineeError } = await supabaseAdmin
       .from('trainees')
       .insert({
+        tenant_id: reg.tenant_id,
         first_name: reg.first_name,
         last_name: reg.last_name,
         middle_name: reg.middle_name || '',
@@ -284,7 +285,7 @@ export class RegistrationService {
     // 3. Create trainee_accounts link (user ↔ trainee)
     const { error: linkError } = await supabaseAdmin
       .from('trainee_accounts')
-      .insert({ user_id: user.id, trainee_id: trainee.id });
+      .insert({ user_id: user.id, trainee_id: trainee.id, tenant_id: reg.tenant_id });
 
     if (linkError) {
       // Rollback both user and trainee
@@ -335,13 +336,14 @@ export class RegistrationService {
   }
 
   /**
-   * Count pending registrations (for badge indicator)
+   * Count pending registrations for a specific tenant
    */
-  async countPending(): Promise<number> {
+  async countPendingByTenant(tenantId: string): Promise<number> {
     const { count, error } = await supabaseAdmin
       .from('pending_registrations')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending');
+      .eq('status', 'pending')
+      .eq('tenant_id', tenantId);
 
     if (error) {
       this.throwIfPendingRegistrationsMissing(error);

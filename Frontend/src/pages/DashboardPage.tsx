@@ -27,7 +27,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { user, hasPermission, isAuthReady } = useAuth();
   const [stats, setStats] = useState<any[]>([]);
-  const [analyticsData] = useState<any[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<any[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [activityPage, setActivityPage] = useState(1);
   const [, setLoading] = useState(true);
@@ -103,14 +103,46 @@ export default function DashboardPage() {
       // Fetch recent activity logs (only for users with permission)
       if (hasPermission('canViewActivityLogs')) {
         try {
-          const activityResponse = await activityLogService.getActivityLogs({});
-          if (activityResponse?.data) {
-            setRecentActivity(activityResponse.data);
+          const activityData = await activityLogService.getActivityLogs({});
+          if (activityData && activityData.length > 0) {
+            setRecentActivity(activityData);
           }
         } catch (activityError) {
           // Silently handle activity log errors - user can still see stats
           logger.warn('Failed to fetch activity logs', { error: activityError });
         }
+      }
+
+      // Fetch analytics data for dashboard visualization
+      try {
+        const analytics = await reportService.getActivityAnalytics();
+        if (analytics && Object.keys(analytics).length > 0) {
+          // Transform the analytics data into the format expected by the UI
+          const analyticsArray = [
+            {
+              category: 'Activity by Module',
+              data: Object.entries(analytics.byModule || {}).map(([module, count]: [string, any]) => ({
+                label: module,
+                value: count,
+                percentage: ((count as number) / (analytics.totalActions || 1)) * 100,
+                color: 'bg-blue-500'
+              }))
+            },
+            {
+              category: 'Activity by Action',
+              data: Object.entries(analytics.byAction || {}).map(([action, count]: [string, any]) => ({
+                label: action,
+                value: count,
+                percentage: ((count as number) / (analytics.totalActions || 1)) * 100,
+                color: 'bg-green-500'
+              }))
+            }
+          ];
+          setAnalyticsData(analyticsArray);
+        }
+      } catch (analyticsError) {
+        // Silently handle analytics errors - UI shows "No analytics data available"
+        logger.warn('Failed to fetch analytics data', { error: analyticsError });
       }
       
     } catch (error) {
@@ -228,9 +260,9 @@ export default function DashboardPage() {
             <CardTitle>Recent Activity</CardTitle>
             <CardDescription>Latest system activity and changes</CardDescription>
           </CardHeader>
-          <CardContent>
-            {recentActivity.length > 0 ? (
-              <>
+          {recentActivity.length > 0 ? (
+            <>
+              <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -259,9 +291,13 @@ export default function DashboardPage() {
                     ))}
                   </TableBody>
                 </Table>
-
-                {totalActivityPages > 1 && (
-                  <div className="mt-4 flex justify-center">
+              </CardContent>
+              {totalActivityPages > 1 && (
+                <div className="border-t px-6 py-3 bg-muted/30">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="text-xs text-muted-foreground">
+                      Page {activityPage} of {totalActivityPages} • Showing {paginatedRecentActivity.length} of {recentActivity.length} entries
+                    </div>
                     <Pagination>
                       <PaginationContent>
                         <PaginationItem>
@@ -313,15 +349,15 @@ export default function DashboardPage() {
                       </PaginationContent>
                     </Pagination>
                   </div>
-                )}
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <FileText className="mb-4 size-12 text-muted-foreground" />
-                <p className="text-muted-foreground">No recent activity</p>
-              </div>
-            )}
-          </CardContent>
+                </div>
+              )}
+            </>
+          ) : (
+            <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+              <FileText className="mb-4 size-12 text-muted-foreground" />
+              <p className="text-muted-foreground">No recent activity</p>
+            </CardContent>
+          )}
         </Card>
 
         {/* Recent Activity - Mobile Cards */}

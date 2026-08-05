@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, Save, X, Plus, Trash2, AlertCircle, Upload, Image as ImageIcon, Award, Building2, ShieldCheck } from 'lucide-react';
 import traineeService from '../services/traineeService';
 import programService from '../services/programService';
-import api, { API_BASE_URL, getFileUrl } from '../services/api';
+import api, { getFileUrl } from '../services/api';
 import { Skeleton } from '../components/ui/skeleton';
 import { useAuth } from '../contexts/AuthContext';
 import logger from '../utils/logger';
@@ -793,27 +793,28 @@ export default function TraineeFormPage() {
           </div>
         </div>
 
-        {/* Form Content */}
-        <Card>
+        {/* Validation Errors Alert - displayed at top before all step cards */}
+        {Object.keys(validationErrors).length > 0 && (
+          <Alert variant="destructive">
+            <AlertCircle className="size-4" />
+            <AlertDescription>
+              <div className="font-semibold mb-2">Please fix the following errors:</div>
+              <ul className="list-disc list-inside space-y-1">
+                {Object.entries(validationErrors).map(([field, error]) => (
+                  <li key={field} className="text-sm">{error}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Step 1: Personal Info Card */}
+        <Card className="border-2 hover:shadow-md transition-all">
           <CardHeader>
-            <CardTitle>{steps[currentStep - 1].name}</CardTitle>
-            <CardDescription>{steps[currentStep - 1].description}</CardDescription>
+            <CardTitle>{steps[0].name}</CardTitle>
+            <CardDescription>{steps[0].description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Validation Errors Alert */}
-            {Object.keys(validationErrors).length > 0 && (
-              <Alert variant="destructive">
-                <AlertCircle className="size-4" />
-                <AlertDescription>
-                  <div className="font-semibold mb-2">Please fix the following errors:</div>
-                  <ul className="list-disc list-inside space-y-1">
-                    {Object.entries(validationErrors).map(([field, error]) => (
-                      <li key={field} className="text-sm">{error}</li>
-                    ))}
-                  </ul>
-                </AlertDescription>
-              </Alert>
-            )}
             
             {/* Step 1: Personal Info */}
             {currentStep === 1 && (
@@ -987,8 +988,16 @@ export default function TraineeFormPage() {
                 )}
               </div>
             )}
+          </CardContent>
+        </Card>
 
-            {/* Step 2: Address */}
+        {/* Step 2: Address Card */}
+        <Card className="border-2 hover:shadow-md transition-all">
+          <CardHeader>
+            <CardTitle>{steps[1].name}</CardTitle>
+            <CardDescription>{steps[1].description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
             {currentStep === 2 && (
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -1077,8 +1086,16 @@ export default function TraineeFormPage() {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
 
-            {/* Step 3: Education */}
+        {/* Step 3: Education Card */}
+        <Card className="border-2 hover:shadow-md transition-all">
+          <CardHeader>
+            <CardTitle>{steps[2].name}</CardTitle>
+            <CardDescription>{steps[2].description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
             {currentStep === 3 && (
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
@@ -1133,8 +1150,16 @@ export default function TraineeFormPage() {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
 
-            {/* Step 4: Classification */}
+        {/* Step 4: Classification Card */}
+        <Card className="border-2 hover:shadow-md transition-all">
+          <CardHeader>
+            <CardTitle>{steps[3].name}</CardTitle>
+            <CardDescription>{steps[3].description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
             {currentStep === 4 && (
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -1183,157 +1208,182 @@ export default function TraineeFormPage() {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
 
-            {/* Step 5: Trainings */}
+        {/* Step 5: Trainings Card */}
+        <Card className="border-2 hover:shadow-md transition-all">
+          <CardHeader>
+            <CardTitle>{steps[4].name}</CardTitle>
+            <CardDescription>{steps[4].description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
             {currentStep === 5 && (
               <div className="space-y-6">
-                {/* First Training */}
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="program">Training Program *</Label>
-                    <Select value={trainings[0].program || ''} onValueChange={(value: string) => handleTrainingChange(0, 'program', value)}>
-                      <SelectTrigger className={validationErrors.program ? 'border-red-500' : ''}>
-                        <SelectValue placeholder="Select program">
-                          {trainings[0].program ? getProgramNameById(trainings[0].program) : "Select program"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {programs.length === 0 ? (
-                          <SelectItem value="none" disabled>No programs available</SelectItem>
-                        ) : (
-                          programs.map((program) => (
-                            <SelectItem key={program.id} value={program.id}>
-                              {program.name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    {validationErrors.program && (
-                      <p className="text-sm text-red-500">{validationErrors.program}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Status *</Label>
-                    <Select value={trainings[0].status} onValueChange={(value: string) => handleTrainingChange(0, 'status', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="dateEnrolled">Date Enrolled *</Label>
-                    <Input
-                      id="dateEnrolled"
-                      type="date"
-                      value={trainings[0].dateEnrolled}
-                      onChange={(e) => handleTrainingChange(0, 'dateEnrolled', e.target.value)}
-                      required
-                      className={validationErrors.dateEnrolled ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                    />
-                    {validationErrors.dateEnrolled && (
-                      <p className="text-sm text-red-500">{validationErrors.dateEnrolled}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="dateCompleted">Date Completed</Label>
-                    <Input
-                      id="dateCompleted"
-                      type="date"
-                      value={trainings[0].dateCompleted}
-                      onChange={(e) => handleTrainingChange(0, 'dateCompleted', e.target.value)}
-                    />
-                  </div>
+                {/* Program Cards Selection */}
+                <div className="space-y-4">
+                  <Label>Select Programs *</Label>
+                  {programs.length === 0 ? (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>No programs available</AlertDescription>
+                    </Alert>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {programs.map((program) => {
+                        const isSelected = trainings.some(t => t.program === program.id);
+                        return (
+                          <Card
+                            key={program.id}
+                            onClick={() => {
+                              if (isSelected) {
+                                // Remove if already selected
+                                const newTrainings = trainings.filter(t => t.program !== program.id);
+                                setTrainings(newTrainings.length > 0 ? newTrainings : [{ program: '', status: 'active', dateEnrolled: '', dateCompleted: '' }]);
+                              } else {
+                                // Add if not selected
+                                if (trainings[0].program === '' && trainings.length === 1) {
+                                  // Replace empty first training
+                                  handleTrainingChange(0, 'program', program.id);
+                                } else {
+                                  // Add new training
+                                  setTrainings([...trainings, { program: program.id, status: 'active', dateEnrolled: '', dateCompleted: '' }]);
+                                }
+                              }
+                            }}
+                            className={`cursor-pointer transition-all group hover:shadow-lg ${
+                              isSelected
+                                ? 'border-primary bg-primary/5 shadow-md'
+                                : 'hover:border-primary/50'
+                            }`}
+                          >
+                            <CardHeader>
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="flex size-12 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                                  <Award className="size-6 text-primary" />
+                                </div>
+                                {isSelected && (
+                                  <div className="flex-shrink-0">
+                                    <div className="flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                      <span className="text-xs font-bold">✓</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <CardTitle className="line-clamp-2">{program.name}</CardTitle>
+                              <CardDescription className="line-clamp-2">{program.description || 'No description available'}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-2 text-sm">
+                                {program.duration && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Duration:</span>
+                                    <span className="font-medium">{program.duration}</span>
+                                  </div>
+                                )}
+                                {program.level && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Level:</span>
+                                    <span className="font-medium">{program.level}</span>
+                                  </div>
+                                )}
+                                {program.status && (
+                                  <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+                                    <span className="text-xs text-muted-foreground">Status:</span>
+                                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                      program.status === 'active'
+                                        ? 'bg-green-100 text-green-800'
+                                        : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {program.status}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {validationErrors.program && (
+                    <p className="text-sm text-red-500">{validationErrors.program}</p>
+                  )}
                 </div>
 
-                {/* Additional Trainings */}
-                {trainings.length > 1 && (
-                  <div className="space-y-4">
-                    {trainings.slice(1).map((training, index) => (
-                      <div key={index} className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label htmlFor={`program-${index + 1}`}>Training Program *</Label>
-                          <Select value={training.program} onValueChange={(value: string) => handleTrainingChange(index + 1, 'program', value)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select program">
-                                {training.program ? getProgramNameById(training.program) : "Select program"}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {programs.length === 0 ? (
-                                <SelectItem value="none" disabled>No programs available</SelectItem>
-                              ) : (
-                                programs.map((program) => (
-                                  <SelectItem key={program.id} value={program.id}>
-                                    {program.name}
-                                  </SelectItem>
-                                ))
+                {/* Training Details for Selected Programs */}
+                {trainings.some(t => t.program !== '') && (
+                  <div className="space-y-6 pt-4 border-t">
+                    <Label className="text-base font-semibold">Training Details</Label>
+                    {trainings.map((training, index) => (
+                      training.program && (
+                        <div key={index} className="rounded-lg border p-4 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium text-sm">{getProgramNameById(training.program)}</p>
+                            {trainings.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeTraining()}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            )}
+                          </div>
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor={`status-${index}`}>Status *</Label>
+                              <Select value={training.status} onValueChange={(value: string) => handleTrainingChange(index, 'status', value)}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="active">Active</SelectItem>
+                                  <SelectItem value="completed">Completed</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor={`dateEnrolled-${index}`}>Date Enrolled *</Label>
+                              <Input
+                                id={`dateEnrolled-${index}`}
+                                type="date"
+                                value={training.dateEnrolled}
+                                onChange={(e) => handleTrainingChange(index, 'dateEnrolled', e.target.value)}
+                                required
+                                className={validationErrors.dateEnrolled ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                              />
+                              {validationErrors.dateEnrolled && (
+                                <p className="text-sm text-red-500">{validationErrors.dateEnrolled}</p>
                               )}
-                            </SelectContent>
-                          </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor={`dateCompleted-${index}`}>Date Completed</Label>
+                              <Input
+                                id={`dateCompleted-${index}`}
+                                type="date"
+                                value={training.dateCompleted}
+                                onChange={(e) => handleTrainingChange(index, 'dateCompleted', e.target.value)}
+                              />
+                            </div>
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor={`status-${index + 1}`}>Status *</Label>
-                          <Select value={training.status} onValueChange={(value: string) => handleTrainingChange(index + 1, 'status', value)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor={`dateEnrolled-${index + 1}`}>Date Enrolled *</Label>
-                          <Input
-                            id={`dateEnrolled-${index + 1}`}
-                            type="date"
-                            value={training.dateEnrolled}
-                            onChange={(e) => handleTrainingChange(index + 1, 'dateEnrolled', e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor={`dateCompleted-${index + 1}`}>Date Completed</Label>
-                          <Input
-                            id={`dateCompleted-${index + 1}`}
-                            type="date"
-                            value={training.dateCompleted}
-                            onChange={(e) => handleTrainingChange(index + 1, 'dateCompleted', e.target.value)}
-                          />
-                        </div>
-                      </div>
+                      )
                     ))}
                   </div>
                 )}
 
-                {/* Buttons moved to bottom */}
-                <div className="flex items-center justify-between">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={addTraining}
-                  >
-                    <Plus className="mr-2 size-4" />
-                    Add Training
-                  </Button>
-
-                  {trainings.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={removeTraining}
-                    >
-                      <Trash2 className="mr-2 size-4" />
-                      Remove Training
-                    </Button>
-                  )}
-                </div>
+                {/* Add More Programs Button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addTraining}
+                  className="w-full md:w-auto"
+                >
+                  <Plus className="mr-2 size-4" />
+                  Add Another Program
+                </Button>
 
                 {/* Certificates Section — only visible when editing */}
                 {id && (
@@ -1376,22 +1426,16 @@ export default function TraineeFormPage() {
                 )}
               </div>
             )}
+          </CardContent>
+        </Card>
 
-            {/* Certificate Upload Modal */}
-            {id && (
-              <CertificateUploadModal
-                open={uploadCertModalOpen}
-                onClose={() => setUploadCertModalOpen(false)}
-                traineeId={id}
-                traineeName={traineeName}
-                onSuccess={() => {
-                  loadCertificates();
-                  setUploadCertModalOpen(false);
-                }}
-              />
-            )}
-
-            {/* Step 6: Photo */}
+        {/* Step 6: Photo Card */}
+        <Card className="border-2 hover:shadow-md transition-all">
+          <CardHeader>
+            <CardTitle>{steps[5].name}</CardTitle>
+            <CardDescription>{steps[5].description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
             {currentStep === 6 && (
               <div className="space-y-6">
                 {/* Dropzone */}
@@ -1495,49 +1539,67 @@ export default function TraineeFormPage() {
           </CardContent>
         </Card>
 
-        {/* Navigation Buttons */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/trainees')}
-            >
-              <X className="mr-2 size-4" />
-              Cancel
-            </Button>
-            <Button
-              variant="outline"
-              onClick={prevStep}
-              disabled={currentStep === 1}
-            >
-              <ChevronLeft className="mr-2 size-4" />
-              Previous
-            </Button>
-          </div>
-          
-          <div className="text-sm text-muted-foreground">
-            {currentStep} / {steps.length}
-          </div>
+        {/* Certificate Upload Modal */}
+        {id && (
+          <CertificateUploadModal
+            open={uploadCertModalOpen}
+            onClose={() => setUploadCertModalOpen(false)}
+            traineeId={id}
+            traineeName={traineeName}
+            onSuccess={() => {
+              loadCertificates();
+              setUploadCertModalOpen(false);
+            }}
+          />
+        )}
 
-          {currentStep < steps.length ? (
-            <Button 
-              type="button"
-              onClick={nextStep}
-            >
-              Next
-              <ChevronRight className="ml-2 size-4" />
-            </Button>
-          ) : (
-            <Button 
-              type="button"
-              onClick={handleSubmit} 
-              disabled={loading || isVerifying}
-            >
-              <Save className="mr-2 size-4" />
-              {loading ? (id ? 'Updating...' : 'Saving...') : isVerifying ? 'Verifying...' : (id ? 'Update Trainee' : 'Save Trainee')}
-            </Button>
-          )}
-        </div>
+        {/* Navigation Buttons Card */}
+        <Card className="border-2">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/trainees')}
+                >
+                  <X className="mr-2 size-4" />
+                  Cancel
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={prevStep}
+                  disabled={currentStep === 1}
+                >
+                  <ChevronLeft className="mr-2 size-4" />
+                  Previous
+                </Button>
+              </div>
+              
+              <div className="text-sm text-muted-foreground">
+                {currentStep} / {steps.length}
+              </div>
+
+              {currentStep < steps.length ? (
+                <Button 
+                  type="button"
+                  onClick={nextStep}
+                >
+                  Next
+                  <ChevronRight className="ml-2 size-4" />
+                </Button>
+              ) : (
+                <Button 
+                  type="button"
+                  onClick={handleSubmit} 
+                  disabled={loading || isVerifying}
+                >
+                  <Save className="mr-2 size-4" />
+                  {loading ? (id ? 'Updating...' : 'Saving...') : isVerifying ? 'Verifying...' : (id ? 'Update Trainee' : 'Save Trainee')}
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
       )}
     </DashboardLayout>
