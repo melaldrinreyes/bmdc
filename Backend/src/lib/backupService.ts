@@ -243,7 +243,7 @@ export async function createBackup(): Promise<BackupResult> {
 
   // ── 3. Encrypt if enabled (Req 20.5) ─────────────────────────────────────
   if (encrypted) {
-    fileBuffer = maybeEncrypt(fileBuffer);
+    fileBuffer = maybeEncrypt(fileBuffer) as any;
   }
 
   // ── 4. Write to disk ──────────────────────────────────────────────────────

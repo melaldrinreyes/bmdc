@@ -190,11 +190,11 @@ export class LendingService {
   }
 
   async getLendingsByTrainee(traineeId: string): Promise<Lending[]> {
-    return this.getAllLendings({ trainee_id: traineeId });
+    return this.getAllLendings(null, { trainee_id: traineeId });
   }
 
   async getActiveLendings(): Promise<Lending[]> {
-    return this.getAllLendings({ status: 'active' });
+    return this.getAllLendings(null, { status: 'active' });
   }
 
   async getOverdueLendings(context: TenantContext | null): Promise<Lending[]> {

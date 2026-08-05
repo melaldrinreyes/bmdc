@@ -15,16 +15,10 @@ export const GET = withErrorHandler(
     const { id } = await params;
     const ctxResult = requireTenantContext(request);
     if (ctxResult.error) return ctxResult.error;
-    const { tenantId, isSuperAdmin } = ctxResult.context;
 
-    const lending = await lendingService.getLendingById(id);
+    const lending = await lendingService.getLendingById(ctxResult.context, id);
 
     if (!lending) {
-      return notFoundResponse('Lending not found');
-    }
-
-    // Enforce tenant isolation — only allow access to own tenant's lendings
-    if (!isSuperAdmin && lending.tenant_id && lending.tenant_id !== tenantId) {
       return notFoundResponse('Lending not found');
     }
 

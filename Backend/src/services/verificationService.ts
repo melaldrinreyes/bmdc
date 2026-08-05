@@ -67,11 +67,24 @@ export class VerificationService {
       // Send via Email
       if (method === 'email' || method === 'both') {
         try {
+          const templateBody = `
+<h2>Email Verification</h2>
+<p>Hello {{firstName}},</p>
+<p>Your verification code is: <strong>{{code}}</strong></p>
+<p>This code will expire in {{expiresIn}}.</p>
+<p>If you did not request this code, please ignore this email.</p>
+          `.trim();
+
+          // Need tenantId - for now use a default one. This should ideally be passed in params
+          const tenantId = process.env.NEXT_PUBLIC_BMDC_TENANT_ID || '00000000-0000-0000-0000-000000000001';
+
           await sendEmail({
-            to: email,
+            tenantId,
+            recipientEmail: email,
             subject: 'Verify Your Email - BMDC Registration',
-            template: 'verification',
-            data: {
+            templateName: 'email_verification',
+            templateBody,
+            templateVariables: {
               firstName,
               code,
               expiresIn: '10 minutes',
@@ -87,13 +100,14 @@ export class VerificationService {
       // Send via WhatsApp
       if ((method === 'whatsapp' || method === 'both') && phone) {
         try {
+          const tenantId = process.env.NEXT_PUBLIC_BMDC_TENANT_ID || '00000000-0000-0000-0000-000000000001';
+
           await sendWhatsApp({
-            phoneNumber: phone,
+            tenantId,
+            recipientPhone: phone,
             templateName: 'verification_code',
-            parameters: {
-              code,
-              expiresIn: '10 minutes',
-            },
+            languageCode: 'en_US',
+            templateVariables: [code, '10 minutes'],
           });
           results.whatsappSent = true;
         } catch (whatsappError) {

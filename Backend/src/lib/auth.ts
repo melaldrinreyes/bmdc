@@ -23,7 +23,14 @@ export const comparePassword = async (
 
 export const generateToken = (payload: Partial<Omit<JWTPayload, 'jti' | 'iat' | 'exp'>> & { userId: string; email: string; role: string }): string => {
   const jti = crypto.randomBytes(16).toString('hex');
-  return jwt.sign({ ...payload, jti } as JWTPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
+  const fullPayload: JWTPayload = {
+    userId: payload.userId,
+    email: payload.email,
+    role: payload.role,
+    tenantId: payload.tenantId || 'unknown',
+    jti,
+  };
+  return jwt.sign(fullPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
 };
 
 export const generateOpaqueToken = (bytes: number = 32): string => {

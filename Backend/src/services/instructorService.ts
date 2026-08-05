@@ -60,7 +60,7 @@ class InstructorService {
   }
 
   async getInstructorById(id: string) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('instructors')
       .select('*')
       .eq('id', id)
@@ -71,7 +71,7 @@ class InstructorService {
   }
 
   async createInstructor(instructorData: CreateInstructorData) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('instructors')
       .insert(instructorData)
       .select()
@@ -92,7 +92,7 @@ class InstructorService {
 
     const photoWasUpdated = Object.prototype.hasOwnProperty.call(instructorData, 'photo_path');
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('instructors')
       .update(instructorData)
       .eq('id', id)
@@ -121,7 +121,7 @@ class InstructorService {
       previousPhotoPath = undefined;
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('instructors')
       .delete()
       .eq('id', id);
@@ -134,7 +134,7 @@ class InstructorService {
   }
 
   async getInstructorsByProgram(programId: string) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('program_instructors')
       .select(`
         id,
@@ -148,7 +148,7 @@ class InstructorService {
   }
 
   async assignInstructorToProgram(programId: string, instructorId: string, role: string = 'instructor') {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('program_instructors')
       .insert({
         program_id: programId,
@@ -163,7 +163,7 @@ class InstructorService {
   }
 
   async removeInstructorFromProgram(programId: string, instructorId: string) {
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('program_instructors')
       .delete()
       .eq('program_id', programId)

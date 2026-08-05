@@ -324,7 +324,7 @@ export class TraineeService {
   }
 
   async getTraineeByQRCode(qrCode: string): Promise<Trainee | null> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('trainees')
       .select('*')
       .eq('qr_code', qrCode)
@@ -340,7 +340,7 @@ export class TraineeService {
   }
 
   async getTraineesByProgram(programId: string): Promise<Trainee[]> {
-    return this.getAllTrainees({ program_id: programId });
+    return this.getAllTrainees(null, { program_id: programId });
   }
 }
 

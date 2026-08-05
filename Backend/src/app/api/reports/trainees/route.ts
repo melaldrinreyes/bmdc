@@ -60,16 +60,17 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const programRows = programs || [];
   const programNameById = new Map(programRows.map((p) => [p.id as string, p.name as string]));
 
-  const byProgram: Record<string, number> = {};
-  const byStatus: Record<string, number> = {};
-  const trendMap: Record<string, number> = {};
+  const byProgram: { [key: string]: number } = {};
+  const byStatus: { [key: string]: number } = {};
+  const trendMap: { [key: string]: number } = {};
 
   for (const trainee of traineeRows) {
-    const programName = programNameById.get(trainee.program_id as string) || 'Unknown Program';
-    byProgram[programName] = (byProgram[programName] || 0) + 1;
-    byStatus[String(trainee.status)] = (byStatus[String(trainee.status)] || 0) + 1;
-    const dateKey = (trainee.enrollment_date || trainee.created_at || '').split('T')[0] || 'unknown';
-    trendMap[dateKey] = (trendMap[dateKey] || 0) + 1;
+    const programName: string = (programNameById.get(trainee.program_id as string) as string) || 'Unknown Program';
+    byProgram[programName] = (byProgram[programName] ?? 0) + 1;
+    const statusStr: string = String(trainee.status);
+    byStatus[statusStr] = (byStatus[statusStr] ?? 0) + 1;
+    const dateKey: string = (trainee.enrollment_date || trainee.created_at || '').split('T')[0] || 'unknown';
+    trendMap[dateKey] = (trendMap[dateKey] ?? 0) + 1;
   }
 
   const enrollmentTrend = Object.entries(trendMap)
