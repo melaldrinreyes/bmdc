@@ -4,6 +4,19 @@ import { PendingRegistration } from '@/types';
 import { TraineeRegistrationInput } from '@/utils/validators';
 import { TenantContext } from '@/middleware/tenantContext';
 
+/**
+ * Custom error class for HTTP 409 Conflict responses
+ * Used when a trainee has an incomplete enrollment blocking new applications
+ */
+export class ConflictError extends Error {
+  public statusCode = 409;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConflictError';
+  }
+}
+
 export class RegistrationService {
   private throwIfPendingRegistrationsMissing(error: any): void {
     const message = typeof error?.message === 'string' ? error.message : '';
@@ -15,6 +28,51 @@ export class RegistrationService {
       throw new Error(
         'Registration system is not initialized. Run Backend/database/pending_registrations.sql in your Supabase SQL Editor.'
       );
+    }
+  }
+
+  /**
+   * Check if a trainee has an incomplete enrollment in the same tenant.
+   * An incomplete enrollment is defined as a trainee record with status 
+   * IN ('active', 'inactive'). Completed or dropped enrollments do not 
+   * block new applications.
+   * 
+   * @param email - Trainee email (will be normalized to lowercase)
+   * @param tenantId - Tenant ID to scope the lookup
+   * @returns Object with hasIncompleteEnrollment flag and optional trainee data
+   * @throws Error if database query fails
+   * 
+   * Requirements: 1.1, 2.1, 2.3
+   */
+  private async checkIncompleteEnrollment(
+    email: string,
+    tenantId: string
+  ): Promise<{ hasIncompleteEnrollment: boolean; trainee?: any }> {
+    try {
+      const { data: existingTrainee, error: existingTraineeError } = await supabaseAdmin
+        .from('trainees')
+        .select('id, email, status, program_id')
+        .eq('tenant_id', tenantId)
+        .eq('email', email.toLowerCase())
+        .in('status', ['active', 'inactive'])
+        .maybeSingle();
+
+      if (existingTraineeError) {
+        console.error('[Registration] Database error during incomplete enrollment check:', {
+          email: email.toLowerCase(),
+          tenant_id: tenantId,
+          error: existingTraineeError.message,
+        });
+        throw existingTraineeError;
+      }
+
+      return {
+        hasIncompleteEnrollment: !!existingTrainee,
+        trainee: existingTrainee,
+      };
+    } catch (error: any) {
+      console.error('[Registration] Error in checkIncompleteEnrollment:', error);
+      throw error;
     }
   }
 
@@ -82,6 +140,34 @@ export class RegistrationService {
     if (existingPendingUsername) {
       throw new Error('This username is already pending approval for another registration.');
     }
+
+    // ========== NEW: Check for incomplete enrollment in trainees table ==========
+    // Before allowing a new registration, verify the trainee doesn't have an 
+    // active or inactive enrollment already. Completed/dropped enrollments are 
+    // allowed since those trainees may be re-enrolling.
+    // Requirements: 1.1, 1.2, 2.1, 4.3
+    const incompleteEnrollmentCheck = await this.checkIncompleteEnrollment(
+      data.email.toLowerCase(),
+      tenantId
+    );
+
+    if (incompleteEnrollmentCheck.hasIncompleteEnrollment) {
+      // Log the rejection for audit purposes
+      const trainee = incompleteEnrollmentCheck.trainee;
+      console.log('[Registration] CONFLICT: Incomplete enrollment blocks application', {
+        email: data.email.toLowerCase(),
+        program_id: data.program_id,
+        existing_program_id: trainee?.program_id,
+        existing_status: trainee?.status,
+        tenant_id: tenantId,
+        timestamp: new Date().toISOString(),
+      });
+
+      throw new ConflictError(
+        'You are already enrolled in an incomplete program. Please complete or drop your current program before applying to a new one.'
+      );
+    }
+    // ========== END: Incomplete enrollment check ==========
 
     // Hash password before storing
     const password_hash = await hashPassword(data.password);

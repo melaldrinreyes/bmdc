@@ -177,7 +177,19 @@ export default function TraineeProgramsPage() {
       setApplyDialogOpen(false);
       setSelectedProgram(null);
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to submit application');
+      // Handle 409 Conflict (incomplete enrollment)
+      if (error.response?.status === 409) {
+        const conflictMessage = error.response?.data?.error || 
+          'You are already enrolled in an incomplete program. Please complete or drop your current program before applying to a new one.';
+        toast.error('Cannot Apply', {
+          description: conflictMessage,
+        });
+        console.warn('[TraineeProgramsPage] Conflict error (409):', conflictMessage);
+      } else {
+        // Handle other errors
+        toast.error(error?.message || 'Failed to submit application');
+        console.error('[TraineeProgramsPage] Error submitting registration:', error);
+      }
     } finally {
       setApplying(false);
     }

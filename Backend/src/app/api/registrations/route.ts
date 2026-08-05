@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { registrationService } from '@/services/registrationService';
+import { registrationService, ConflictError } from '@/services/registrationService';
 import { requireRoleAsync } from '@/middleware/auth';
 import { traineeRegistrationSchema } from '@/utils/validators';
 import { successResponse, createdResponse } from '@/utils/responses';
@@ -101,6 +101,18 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       'Registration submitted successfully. Please wait for admin approval before logging in.'
     );
   } catch (error: any) {
+    // Handle ConflictError (409) - incomplete enrollment
+    if (error instanceof ConflictError) {
+      console.warn('[Registration] Conflict: Trainee with incomplete enrollment blocked', {
+        message: error.message,
+        timestamp: new Date().toISOString(),
+      });
+      return Response.json(
+        { error: error.message },
+        { status: 409 }
+      );
+    }
+
     // Handle validation errors from Zod
     if (error.name === 'ZodError') {
       const validationErrors = error.errors.map((e: any) => ({
