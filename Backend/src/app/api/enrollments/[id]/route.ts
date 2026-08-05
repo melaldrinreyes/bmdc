@@ -162,7 +162,7 @@ export const DELETE = withErrorHandler(
 
     if (deleteError) throw deleteError;
 
-    await activityLogService.logAction(userId, 'delete', 'enrollment', id);
+    await activityLogService.logAction(userId, 'delete', 'enrollment', id, undefined, undefined, tenantId);
 
     return noContentResponse();
   }

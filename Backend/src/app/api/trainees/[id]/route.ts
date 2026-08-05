@@ -92,7 +92,7 @@ export const PUT = withErrorHandler(
       // Strip PII before storing in activity log (SEC-18)
       try {
         const { email: _e, phone: _p, birth_date: _b, street: _s, province: _pr, municipality: _m, barangay: _ba, ...safeLog } = validatedData as any;
-        await activityLogService.logAction(context.userId, 'update', 'trainee', id, safeLog);
+        await activityLogService.logAction(context.userId, 'update', 'trainee', id, safeLog, undefined, context.tenantId);
       } catch { /* non-critical */ }
 
       return successResponse(trainee, 'Trainee updated successfully');
@@ -124,7 +124,7 @@ export const DELETE = withErrorHandler(
 
     await traineeService.deleteTrainee(id);
 
-    await activityLogService.logAction(context.userId, 'delete', 'trainee', id);
+    await activityLogService.logAction(context.userId, 'delete', 'trainee', id, undefined, undefined, context.tenantId);
 
     return noContentResponse();
   }
@@ -166,7 +166,7 @@ export const PATCH = withErrorHandler(
       await activityLogService.logAction(context.userId, 'record_consent', 'trainee', id, {
         consent_given: consentData.consent_given,
         consent_version: consentData.consent_version,
-      });
+      }, undefined, context.tenantId);
 
       return successResponse(trainee, 'Privacy consent recorded successfully');
     }
@@ -191,7 +191,7 @@ export const PATCH = withErrorHandler(
 
     try {
       const { email: _e, phone: _p, birth_date: _b, street: _s, province: _pr, municipality: _m, barangay: _ba, ...safeLog } = validatedData as any;
-      await activityLogService.logAction(context.userId, 'update', 'trainee', id, safeLog);
+      await activityLogService.logAction(context.userId, 'update', 'trainee', id, safeLog, undefined, context.tenantId);
     } catch { /* non-critical */ }
 
     return successResponse(trainee, 'Trainee updated successfully');
