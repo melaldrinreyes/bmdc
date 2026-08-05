@@ -74,7 +74,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   await activityLogService.logAction(userId, 'create', 'item', item.id, {
     name: validatedData.name,
     tenantId,
-  });
+  }, undefined, tenantId);
 
   return successResponse(item, 'Item created successfully', 201);
 });

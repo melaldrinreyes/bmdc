@@ -69,7 +69,7 @@ export const PUT = withErrorHandler(
 
     const item = await itemService.updateItem(id, validatedData);
 
-    await activityLogService.logAction(userId, 'update', 'item', id, { name: validatedData.name });
+    await activityLogService.logAction(userId, 'update', 'item', id, { name: validatedData.name }, undefined, tenantId);
 
     return successResponse(item, 'Item updated successfully');
   }
@@ -98,7 +98,7 @@ export const DELETE = withErrorHandler(
 
     await itemService.deleteItem(id);
 
-    await activityLogService.logAction(userId, 'delete', 'item', id);
+    await activityLogService.logAction(userId, 'delete', 'item', id, undefined, undefined, tenantId);
 
     return noContentResponse();
   }

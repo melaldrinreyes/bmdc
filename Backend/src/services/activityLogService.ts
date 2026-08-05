@@ -159,6 +159,7 @@ export class ActivityLogService {
     details?: any;
     ip_address?: string;
     user_agent?: string;
+    tenant_id?: string;
   }): Promise<ActivityLog> {
     const newLog = {
       ...logData,
@@ -185,7 +186,8 @@ export class ActivityLogService {
     entityType: string,
     entityId: string,
     details?: any,
-    request?: Request
+    request?: Request,
+    tenantId?: string
   ): Promise<void> {
     const ip_address = request?.headers.get('x-forwarded-for') || 
                       request?.headers.get('x-real-ip') || 
@@ -200,6 +202,7 @@ export class ActivityLogService {
       details,
       ip_address,
       user_agent,
+      tenant_id: tenantId,
     });
   }
 

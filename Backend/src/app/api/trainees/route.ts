@@ -64,8 +64,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   await activityLogService.logAction(userId, 'create', 'trainee', traineeRecord.id, {
     ...safeLogData,
     program_id: validatedData.program_id,
-    tenantId,
-  });
+  }, undefined, tenantId);
 
   return successResponse({ ...traineeRecord, temp_password }, 'Trainee created successfully', 201);
 });

@@ -55,7 +55,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   await activityLogService.logAction(userId, 'create', 'lending', lending.id, {
     ...validatedData,
     tenantId,
-  });
+  }, undefined, tenantId);
 
   return successResponse(lending, 'Lending created successfully', 201);
 });

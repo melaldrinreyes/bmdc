@@ -62,7 +62,7 @@ export const PUT = withErrorHandler(
 
     const program = await programService.updateProgram(id, validatedData);
 
-    await activityLogService.logAction(userId, 'update', 'program', id, { name: validatedData.name });
+    await activityLogService.logAction(userId, 'update', 'program', id, { name: validatedData.name }, undefined, tenantId);
 
     return successResponse(program, 'Program updated successfully');
   }
@@ -90,7 +90,7 @@ export const DELETE = withErrorHandler(
 
     await programService.deleteProgram(id);
 
-    await activityLogService.logAction(userId, 'delete', 'program', id);
+    await activityLogService.logAction(userId, 'delete', 'program', id, undefined, undefined, tenantId);
 
     return noContentResponse();
   }
