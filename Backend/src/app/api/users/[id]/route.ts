@@ -31,17 +31,25 @@ export const GET = withErrorHandler(async (request: NextRequest, { params }: { p
   const resolvedParams = await params;
   const { id } = resolvedParams;
 
-  let query = supabaseAdmin
-    .from('users')
-    .select('id, email, username, role, created_at, updated_at')
-    .eq('id', id);
-
-  // Tenant isolation: non-super-admins can only access users from their own tenant
+  // For non-super-admins: verify user belongs to their tenant
   if (user.role !== 'super_admin') {
-    query = query.eq('tenant_id', user.tenantId);
+    const { data: userTenant } = await supabaseAdmin
+      .from('users_tenants')
+      .select('user_id')
+      .eq('tenant_id', user.tenantId)
+      .eq('user_id', id)
+      .maybeSingle();
+
+    if (!userTenant) {
+      return errorResponse('User not found', 404);
+    }
   }
 
-  const { data: foundUser, error } = await query.single();
+  const { data: foundUser, error } = await supabaseAdmin
+    .from('users')
+    .select('id, email, username, role, created_at, updated_at')
+    .eq('id', id)
+    .single();
 
   if (error || !foundUser) return errorResponse('User not found', 404);
 
@@ -62,32 +70,36 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: { p
   const body = await request.json();
   const validatedData = updateUserSchema.parse(body);
 
-  // Verify user exists and belongs to the same tenant
-  let query = supabaseAdmin
-    .from('users')
-    .select('id')
-    .eq('id', id);
-
+  // For non-super-admins: verify user belongs to their tenant
   if (authUser.role !== 'super_admin') {
-    query = query.eq('tenant_id', authUser.tenantId);
+    const { data: userTenant } = await supabaseAdmin
+      .from('users_tenants')
+      .select('user_id')
+      .eq('tenant_id', authUser.tenantId)
+      .eq('user_id', id)
+      .maybeSingle();
+
+    if (!userTenant) {
+      return errorResponse('User not found', 404);
+    }
   }
 
-  const { data: existingUser } = await query.single();
+  // Check if user exists
+  const { data: existingUser } = await supabaseAdmin
+    .from('users')
+    .select('id')
+    .eq('id', id)
+    .single();
 
   if (!existingUser) return errorResponse('User not found', 404);
 
   if (validatedData.email) {
-    let emailQuery = supabaseAdmin
+    const { data: emailUser } = await supabaseAdmin
       .from('users')
       .select('id')
       .eq('email', validatedData.email)
-      .neq('id', id);
-
-    if (authUser.role !== 'super_admin') {
-      emailQuery = emailQuery.eq('tenant_id', authUser.tenantId);
-    }
-
-    const { data: emailUser } = await emailQuery.single();
+      .neq('id', id)
+      .single();
 
     if (emailUser) return errorResponse('Email already in use', 409);
   }
@@ -100,16 +112,10 @@ export const PUT = withErrorHandler(async (request: NextRequest, { params }: { p
     updateData.password_hash = await hashPassword(validatedData.password);
   }
 
-  let updateQuery = supabaseAdmin
+  const { data: updatedUser, error } = await supabaseAdmin
     .from('users')
     .update(updateData)
-    .eq('id', id);
-
-  if (authUser.role !== 'super_admin') {
-    updateQuery = updateQuery.eq('tenant_id', authUser.tenantId);
-  }
-
-  const { data: updatedUser, error } = await updateQuery
+    .eq('id', id)
     .select('id, email, username, role, created_at, updated_at')
     .single();
 
@@ -130,16 +136,25 @@ export const DELETE = withErrorHandler(async (request: NextRequest, { params }: 
   const resolvedParams = await params;
   const { id } = resolvedParams;
 
-  let query = supabaseAdmin
-    .from('users')
-    .select('id, email')
-    .eq('id', id);
-
+  // For non-super-admins: verify user belongs to their tenant
   if (authUser.role !== 'super_admin') {
-    query = query.eq('tenant_id', authUser.tenantId);
+    const { data: userTenant } = await supabaseAdmin
+      .from('users_tenants')
+      .select('user_id')
+      .eq('tenant_id', authUser.tenantId)
+      .eq('user_id', id)
+      .maybeSingle();
+
+    if (!userTenant) {
+      return errorResponse('User not found', 404);
+    }
   }
 
-  const { data: existingUser } = await query.single();
+  const { data: existingUser } = await supabaseAdmin
+    .from('users')
+    .select('id, email')
+    .eq('id', id)
+    .single();
 
   if (!existingUser) return errorResponse('User not found', 404);
 
@@ -147,18 +162,18 @@ export const DELETE = withErrorHandler(async (request: NextRequest, { params }: 
     return errorResponse('Cannot delete the main admin account', 403);
   }
 
-  let deleteQuery = supabaseAdmin
+  const { error } = await supabaseAdmin
     .from('users')
     .delete()
     .eq('id', id);
 
-  if (authUser.role !== 'super_admin') {
-    deleteQuery = deleteQuery.eq('tenant_id', authUser.tenantId);
-  }
-
-  const { error } = await deleteQuery;
-
   if (error) throw error;
+
+  // Also remove from users_tenants junction table
+  await supabaseAdmin
+    .from('users_tenants')
+    .delete()
+    .eq('user_id', id);
 
   return noContentResponse();
 });

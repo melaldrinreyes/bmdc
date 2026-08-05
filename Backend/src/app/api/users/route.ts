@@ -32,15 +32,47 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const search = searchParams.get('search') || '';
   const role = searchParams.get('role');
 
+  // For non-super-admins: get users from their tenant via users_tenants junction table
+  if (user.role !== 'super_admin') {
+    let query = supabaseAdmin
+      .from('users_tenants')
+      .select('user_id')
+      .eq('tenant_id', user.tenantId);
+
+    const { data: tenantUsers, error: tenantError } = await query;
+    if (tenantError) throw tenantError;
+
+    const userIds = tenantUsers?.map(ut => ut.user_id) || [];
+    
+    if (userIds.length === 0) {
+      return successResponse([]);
+    }
+
+    let userQuery = supabaseAdmin
+      .from('users')
+      .select('id, email, username, role, created_at, updated_at')
+      .in('id', userIds)
+      .order('created_at', { ascending: false });
+
+    if (search) {
+      userQuery = userQuery.or(`email.ilike.%${search}%,username.ilike.%${search}%`);
+    }
+
+    if (role) {
+      userQuery = userQuery.eq('role', role);
+    }
+
+    const { data: users, error } = await userQuery;
+    if (error) throw error;
+
+    return successResponse(users);
+  }
+
+  // For super-admins: get all users
   let query = supabaseAdmin
     .from('users')
     .select('id, email, username, role, created_at, updated_at')
     .order('created_at', { ascending: false });
-
-  // Tenant isolation: non-super-admins can only see their own tenant's users
-  if (user.role !== 'super_admin') {
-    query = query.eq('tenant_id', user.tenantId);
-  }
 
   if (search) {
     query = query.or(`email.ilike.%${search}%,username.ilike.%${search}%`);
@@ -68,16 +100,15 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const body = await request.json();
   const validatedData = createUserSchema.parse(body);
 
-  // Check if user already exists within the same tenant
+  // Check if user already exists
   const { data: existingUser } = await supabaseAdmin
     .from('users')
     .select('id')
     .eq('email', validatedData.email)
-    .eq('tenant_id', user.tenantId)
     .single();
 
   if (existingUser) {
-    return errorResponse('User with this email already exists in your tenant', 409);
+    return errorResponse('User with this email already exists', 409);
   }
 
   const passwordHash = await hashPassword(validatedData.password);
@@ -89,12 +120,22 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       username: validatedData.username,
       password_hash: passwordHash,
       role: validatedData.role,
-      tenant_id: user.tenantId,
     })
     .select('id, email, username, role, created_at, updated_at')
     .single();
 
   if (error) throw error;
+
+  // Assign user to tenant via users_tenants junction table
+  const { error: tenantLinkError } = await supabaseAdmin
+    .from('users_tenants')
+    .insert({
+      user_id: newUser.id,
+      tenant_id: user.tenantId,
+      is_primary: false,
+    });
+
+  if (tenantLinkError) throw tenantLinkError;
 
   return createdResponse(newUser);
 });
