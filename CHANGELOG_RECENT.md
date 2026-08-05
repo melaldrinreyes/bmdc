@@ -6,6 +6,22 @@
 
 ---
 
+## ⚠️ Security Notice
+
+**All sensitive data has been redacted from this changelog:**
+- ✅ UUID identifiers (user IDs, tenant IDs, program IDs) - Redacted as `{UUID}`
+- ✅ Email addresses - Redacted as `{email}`
+- ✅ Usernames - Redacted as `{username}`
+- ✅ API endpoints with real IDs - Redacted as `/api/{endpoint}/{id}`
+- ✅ Database connection strings - Hidden
+- ✅ Authentication tokens - Never included
+- ✅ Phone numbers - Redacted
+- ✅ Personal information - Hidden
+
+This document is safe for sharing in non-production environments.
+
+---
+
 ## Summary
 
 This document captures all significant changes made to the BMDC (Bongabong Manpower Development Center) system over the last 24 hours. The changes focus on:
@@ -53,9 +69,7 @@ Backend/src/app/api/reports/**/*.ts
 
 ### 2. **Role Hierarchy & Permission Enforcement** ⭐
 
-**Commits:** 
-- `5dd4617` - Implement proper role hierarchy
-- `c60ca7c` - Add explicit super_admin exclusion
+**Commits:** Multiple covering role definitions and permissions
 
 **Super Admin (Platform-Wide):**
 - ✅ Read-only access across all tenants
@@ -102,16 +116,13 @@ local_admin: {
 
 ### 3. **Multi-Tenant Landing Page** 🎨
 
-**Commits:**
-- `fb40b38` - Add public tenants endpoint
-- `930c54b` - Add multi-tenant landing page switcher
-- `c6e3f40` - Standardize landing page with unified CMS settings
+**Commits:** Multiple covering tenant endpoints and landing page
 
 **Features:**
 - Public tenant selector dropdown (visible when >1 tenant exists)
 - All tenants display identical standardized layout
 - No tenant-specific CMS customization (unified format)
-- Tenant ID passed via URL query parameter `?tenant_id=xxx`
+- Tenant ID passed via URL query parameter `?tenant_id={UUID}`
 - Public API endpoint `/api/tenants` (no authentication required)
 
 **Files Modified:**
@@ -131,11 +142,7 @@ Backend/src/app/api/tenants/route.ts
 
 ### 4. **Activity Logging with Tenant Context** 📊
 
-**Commits:**
-- `e8e4d3f` - Include tenant_id in activity logs
-- `0dca60408` - Seed activity logs and add debug logging
-- `26c653dc` - Implement tenant isolation for activity logs
-- `56e5f9a` - Add tenant isolation to stats endpoint
+**Commits:** Multiple covering activity log services and endpoints
 
 **What Was Done:**
 - Updated `activityLogService.logAction()` to accept optional `tenantId`
@@ -174,10 +181,7 @@ CREATE TABLE activity_logs (
 
 ### 5. **User Management & Account Isolation** 👥
 
-**Commits:**
-- `0c6cfd38` - Correct tenant isolation for users endpoints
-- `26c653dc` - Implement critical tenant data isolation fixes
-- `c60ca7c` - Add explicit super_admin role exclusion
+**Commits:** Multiple covering user endpoints and filtering
 
 **Features:**
 - Local admins only see users in their tenant
@@ -191,7 +195,7 @@ CREATE TABLE activity_logs (
 GET /api/users
 - Requires: local_admin role
 - Returns: Only users from user's tenant + excludes super_admin role
-- Query: users_tenants JOIN users WHERE tenant_id = current_tenant
+- Query: users_tenants JOIN users WHERE tenant_id = current_tenant AND role != 'super_admin'
 
 POST /api/users
 - Requires: local_admin role
@@ -208,11 +212,7 @@ GET/PUT/DELETE /api/users/[id]
 
 ### 6. **Trainee Program Management** 🎓
 
-**Commits:**
-- `cd9c9c5` - Implement single active program enforcement
-- `17869a3a` - Allow existing trainees to apply for programs
-- `32298700` - Improve error message for incomplete programs
-- `d8751a45` - Fix trainees navigation and allow new program applications
+**Commits:** Multiple covering registration and program enrollment logic
 
 **Features:**
 - Trainees can only be enrolled in ONE active program at a time
@@ -236,9 +236,7 @@ GET/PUT/DELETE /api/users/[id]
 
 ### 7. **Real-Time Program Synchronization** ⚡
 
-**Commits:**
-- `1530a5b8` - Implement real-time program sync with public image access
-- `3332dc34` - Implement real-time sync feature with WebSocket support
+**Commits:** Multiple covering program sync and image serving
 
 **Features:**
 - Public program images accessible without authentication
@@ -266,9 +264,7 @@ GET/PUT/DELETE /api/users/[id]
 
 ### 8. **Bug Fixes & Compilation Issues** 🔧
 
-**Commits:**
-- `d8751a45` - Fix compilation errors and auth context handling
-- Multiple schema and type fixes
+**Commits:** Multiple fixing type errors and compilation issues
 
 **Fixes:**
 - Fixed `generateToken` signature to accept partial JWTPayload
@@ -377,19 +373,19 @@ src/
 ### Backend API Testing
 ```bash
 # Test tenant isolation in users endpoint
-curl -H "Authorization: Bearer {local_admin_token}" \
+curl -H "Authorization: Bearer {token}" \
   https://api.bmdc.site/api/users
 # Should NOT include super_admin accounts
 
 # Test activity logs filtering
-curl -H "Authorization: Bearer {local_admin_token}" \
+curl -H "Authorization: Bearer {token}" \
   https://api.bmdc.site/api/activity-logs
 # Should only show tenant's activities
 
 # Test super admin can see all
-curl -H "Authorization: Bearer {super_admin_token}" \
-  https://api.bmdc.site/api/activity-logs?tenant_id=all
-# Should return all tenant activities
+curl -H "Authorization: Bearer {token}" \
+  https://api.bmdc.site/api/activity-logs?filter=all
+# Should return filtered activities based on role
 ```
 
 ---
@@ -453,13 +449,7 @@ curl -H "Authorization: Bearer {super_admin_token}" \
 
 ## Questions or Issues?
 
-All changes are documented in Git history:
-```bash
-git log --oneline -32
-git show <commit_hash>
-git diff origin/main..feature/real-time-program-sync
-```
+All changes are documented in Git history with descriptive commit messages. Review commit logs for detailed information on specific changes.
 
 **Current Branch:** `feature/real-time-program-sync`  
-**Last Commit:** `c60ca7c` (Aug 6, 2026 04:46:23 UTC+8)  
 **Status:** ✅ All changes committed and pushed
