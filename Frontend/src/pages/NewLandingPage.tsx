@@ -13,7 +13,6 @@ import { getFileUrl } from '../services/api';
 import { type Program } from '../utils/programHelpers';
 import { getContrastTextColor } from '../utils/contrastText';
 import logger from '../utils/logger';
-import cmsSettingsService from '../services/cmsSettingsService';
 import {
   GraduationCap,
   Target,
@@ -88,15 +87,6 @@ const defaultCmsSettings: CMSSettings = {
   },
 };
 
-const normalizeCmsSettings = (saved: Partial<CMSSettings> | null): CMSSettings => ({
-  ...defaultCmsSettings,
-  ...saved,
-  hero: { ...defaultCmsSettings.hero, ...saved?.hero },
-  appearance: { ...defaultCmsSettings.appearance, ...saved?.appearance },
-  contact: { ...defaultCmsSettings.contact, ...saved?.contact },
-  footer: { ...defaultCmsSettings.footer, ...saved?.footer },
-});
-
 // Format date helper
 const formatDate = (dateString: string) => {
   if (!dateString) return 'TBA';
@@ -137,12 +127,10 @@ export default function LandingPage() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
-  const [cmsSettings, setCmsSettings] = useState<CMSSettings>(defaultCmsSettings);
   const [heroImgLoaded, setHeroImgLoaded] = useState(false);
   const heroRef = useRef<HTMLElement>(null);
   const [allTenants, setAllTenants] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string>('');
-  const [loadingTenants, setLoadingTenants] = useState(true);
 
   // Parallax scroll effect for hero background
   const { scrollY } = useScroll();
@@ -152,7 +140,6 @@ export default function LandingPage() {
   useEffect(() => {
     const fetchTenants = async () => {
       try {
-        setLoadingTenants(true);
         const response = await fetch('/api/tenants');
         if (response.ok) {
           const data = await response.json();
@@ -168,8 +155,6 @@ export default function LandingPage() {
         }
       } catch (error) {
         logger.error('Failed to fetch tenants', { error });
-      } finally {
-        setLoadingTenants(false);
       }
     };
     
@@ -187,39 +172,6 @@ export default function LandingPage() {
       window.history.replaceState({}, '');
     }
   }, [location.state]);
-
-  // Load CMS settings from database (with localStorage fallback)
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        // Fetch CMS settings with tenant_id parameter
-        const url = selectedTenantId 
-          ? `/api/cms-settings?tenant_id=${selectedTenantId}`
-          : '/api/cms-settings';
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.data) {
-            setCmsSettings(normalizeCmsSettings(data.data));
-          } else {
-            setCmsSettings(defaultCmsSettings);
-          }
-        } else {
-          setCmsSettings(defaultCmsSettings);
-        }
-      } catch (error) {
-        logger.error('Failed to load CMS settings', { error });
-        const savedSettings = localStorage.getItem('bmdc-cms-settings');
-        if (savedSettings) {
-          setCmsSettings(normalizeCmsSettings(JSON.parse(savedSettings)));
-        } else {
-          setCmsSettings(defaultCmsSettings);
-        }
-      }
-    };
-    
-    loadSettings();
-  }, [selectedTenantId]);
 
   // Update URL when tenant changes
   useEffect(() => {
@@ -241,8 +193,8 @@ export default function LandingPage() {
     visible: { opacity: 1, transition: { staggerChildren: 0.12 } },
   };
 
-  const heroBackground = cmsSettings.appearance.heroBackground
-    ? getFileUrl(cmsSettings.appearance.heroBackground)
+  const heroBackground = defaultCmsSettings.appearance.heroBackground
+    ? getFileUrl(defaultCmsSettings.appearance.heroBackground)
     : '';
 
   return (
@@ -256,9 +208,9 @@ export default function LandingPage() {
             transition={{ duration: 0.5 }}
             className="flex items-center gap-2 md:gap-3"
           >
-            {cmsSettings?.appearance?.logo ? (
+            {defaultCmsSettings?.appearance?.logo ? (
               <img
-                src={getFileUrl(cmsSettings.appearance.logo)}
+                src={getFileUrl(defaultCmsSettings.appearance.logo)}
                 alt="BMDC Logo"
                 className="h-10 w-10 md:h-12 md:w-12 rounded-lg object-contain shadow-md"
               />
@@ -269,10 +221,10 @@ export default function LandingPage() {
             )}
             <div className="hidden sm:block">
               <p className="text-sm md:text-base font-bold leading-tight">
-                {getValue(cmsSettings?.footer?.companyName) || 'Bongabong MDC'}
+                {getValue(defaultCmsSettings?.footer?.companyName) || 'Bongabong MDC'}
               </p>
               <p className="text-xs md:text-sm font-medium text-muted-foreground">
-                {getValue(cmsSettings?.footer?.tagline) || 'Empowering Communities'}
+                {getValue(defaultCmsSettings?.footer?.tagline) || 'Empowering Communities'}
               </p>
             </div>
           </motion.div>
@@ -419,7 +371,7 @@ export default function LandingPage() {
             {/* Social link */}
             <motion.div variants={fadeInUp}>
               <a
-                href={getValue(cmsSettings?.contact?.facebook) || 'https://facebook.com'}
+                href={getValue(defaultCmsSettings?.contact?.facebook) || 'https://facebook.com'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 md:gap-3 rounded-full bg-blue-600 px-5 py-3 md:px-8 md:py-4 text-white transition-all hover:scale-105 hover:bg-blue-700 shadow-2xl font-bold text-sm md:text-base"
@@ -605,7 +557,7 @@ export default function LandingPage() {
               Who We Are
             </motion.h2>
             <motion.p variants={fadeInUp} className="mx-auto max-w-2xl text-sm md:text-base text-muted-foreground px-4">
-              {getValue(cmsSettings?.footer?.companyName)} is committed to building a skilled and empowered community.
+              {getValue(defaultCmsSettings?.footer?.companyName)} is committed to building a skilled and empowered community.
             </motion.p>
           </motion.div>
 
@@ -626,7 +578,7 @@ export default function LandingPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="leading-relaxed text-sm md:text-base text-muted-foreground">
-                    {getValue(cmsSettings?.mission)}
+                    {getValue(defaultCmsSettings?.mission)}
                   </p>
                 </CardContent>
               </Card>
@@ -642,7 +594,7 @@ export default function LandingPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="leading-relaxed text-sm md:text-base text-muted-foreground">
-                    {getValue(cmsSettings?.vision)}
+                    {getValue(defaultCmsSettings?.vision)}
                   </p>
                 </CardContent>
               </Card>
@@ -797,8 +749,8 @@ export default function LandingPage() {
                     label: 'Address',
                     content: (
                       <>
-                        <p className="text-xs md:text-sm text-muted-foreground">{getValue(cmsSettings?.contact?.address)}</p>
-                        <p className="text-xs md:text-sm text-muted-foreground">{getValue(cmsSettings?.contact?.addressLine2)}</p>
+                        <p className="text-xs md:text-sm text-muted-foreground">{getValue(defaultCmsSettings?.contact?.address)}</p>
+                        <p className="text-xs md:text-sm text-muted-foreground">{getValue(defaultCmsSettings?.contact?.addressLine2)}</p>
                       </>
                     ),
                   },
@@ -806,13 +758,13 @@ export default function LandingPage() {
                     icon: <Phone className="size-4 md:size-5 text-secondary" />,
                     bg: 'bg-secondary/10',
                     label: 'Phone',
-                    content: <p className="text-xs md:text-sm text-muted-foreground">{getValue(cmsSettings?.contact?.phone)}</p>,
+                    content: <p className="text-xs md:text-sm text-muted-foreground">{getValue(defaultCmsSettings?.contact?.phone)}</p>,
                   },
                   {
                     icon: <Mail className="size-4 md:size-5 text-foreground" />,
                     bg: 'bg-muted',
                     label: 'Email',
-                    content: <p className="text-xs md:text-sm text-muted-foreground">{getValue(cmsSettings?.contact?.email)}</p>,
+                    content: <p className="text-xs md:text-sm text-muted-foreground">{getValue(defaultCmsSettings?.contact?.email)}</p>,
                   },
                   {
                     icon: <Facebook className="size-4 md:size-5 text-blue-600" />,
@@ -852,9 +804,9 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center gap-4 md:gap-5 text-center">
             <div className="flex items-center gap-3">
-              {cmsSettings?.appearance?.logo ? (
+              {defaultCmsSettings?.appearance?.logo ? (
                 <img
-                  src={getFileUrl(cmsSettings.appearance.logo)}
+                  src={getFileUrl(defaultCmsSettings.appearance.logo)}
                   alt="BMDC Logo"
                   className="size-10 md:size-12 rounded-xl object-contain shadow-md"
                 />
@@ -865,10 +817,10 @@ export default function LandingPage() {
               )}
               <div className="text-left">
                 <p className="text-sm md:text-base font-bold">
-                  {getValue(cmsSettings?.footer?.companyName) || 'Bongabong MDC'}
+                  {getValue(defaultCmsSettings?.footer?.companyName) || 'Bongabong MDC'}
                 </p>
                 <p className="text-xs md:text-sm text-muted-foreground font-medium">
-                  {getValue(cmsSettings?.footer?.tagline) || 'Empowering Communities'}
+                  {getValue(defaultCmsSettings?.footer?.tagline) || 'Empowering Communities'}
                 </p>
               </div>
             </div>
@@ -878,7 +830,7 @@ export default function LandingPage() {
               <a href="#contact" className="hover:text-primary transition-all hover:scale-105">Contact</a>
               <button onClick={() => setIsRegistrationModalOpen(true)} className="hover:text-primary transition-all hover:scale-105">Enroll</button>
               <a 
-                href={getValue(cmsSettings?.contact?.facebook) || 'https://www.facebook.com/profile.php?id=61552170609709'}
+                href={getValue(defaultCmsSettings?.contact?.facebook) || 'https://www.facebook.com/profile.php?id=61552170609709'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-primary transition-all hover:scale-105 flex items-center gap-1"
@@ -888,7 +840,7 @@ export default function LandingPage() {
               </a>
             </div>
             <p className="text-xs md:text-sm text-muted-foreground">
-              © {new Date().getFullYear()} {getValue(cmsSettings?.footer?.companyName) || 'Bongabong Manpower Development Center'}. All rights reserved.
+              © {new Date().getFullYear()} {getValue(defaultCmsSettings?.footer?.companyName) || 'Bongabong Manpower Development Center'}. All rights reserved.
             </p>
           </div>
         </div>
