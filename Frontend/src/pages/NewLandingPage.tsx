@@ -1,4 +1,4 @@
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePrograms } from '../contexts/ProgramsContext';
 import { useState, useEffect, useRef } from 'react';
@@ -123,7 +123,6 @@ export default function LandingPage() {
   const { isAuthenticated } = useAuth();
   const { programs: contextPrograms } = usePrograms();
   const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
@@ -145,10 +144,11 @@ export default function LandingPage() {
           const data = await response.json();
           const tenants = data.data || [];
           setAllTenants(tenants);
-          // Set initial tenant from URL or first tenant
-          const tenantParam = searchParams.get('tenant_id');
-          if (tenantParam) {
-            setSelectedTenantId(tenantParam);
+          
+          // Set initial tenant from sessionStorage or first tenant
+          const savedTenantId = sessionStorage.getItem('selectedTenantId');
+          if (savedTenantId && tenants.some((t: { id: string; name: string }) => t.id === savedTenantId)) {
+            setSelectedTenantId(savedTenantId);
           } else if (tenants.length > 0) {
             setSelectedTenantId(tenants[0].id);
           }
@@ -173,12 +173,12 @@ export default function LandingPage() {
     }
   }, [location.state]);
 
-  // Update URL when tenant changes
+  // Store tenant selection in sessionStorage (keep URL clean)
   useEffect(() => {
     if (selectedTenantId) {
-      setSearchParams({ tenant_id: selectedTenantId });
+      sessionStorage.setItem('selectedTenantId', selectedTenantId);
     }
-  }, [selectedTenantId, setSearchParams]);
+  }, [selectedTenantId]);
 
   // All programs from context (synced with backend)
   const allDisplayPrograms = contextPrograms;
